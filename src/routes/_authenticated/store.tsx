@@ -1,7 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { homeFor } from "@/lib/coach/logic";
 import { StoreView } from "@/components/coach/store-view";
-import { ManagerGate, PageIntro, useCoachView } from "@/components/coach/view-gate";
+import { ManagerGate, useCoachView } from "@/components/coach/view-gate";
 
 export const Route = createFileRoute("/_authenticated/store")({
   beforeLoad: ({ context }) => {
@@ -9,10 +9,10 @@ export const Route = createFileRoute("/_authenticated/store")({
   },
   head: () => ({
     meta: [
-      { title: "Store lead · Store Coach" },
-      { name: "description", content: "Huddle sheet, team table, mentors, callbacks and this week's actions for your store." },
-      { property: "og:title", content: "Store lead · Store Coach" },
-      { property: "og:description", content: "Everything a store lead needs for the morning huddle." },
+      { title: "Today's huddle · Store Coach by Manyavar" },
+      { name: "description", content: "Your store's numbers, this week's action, today's cards, mentor pairs and customers to call." },
+      { property: "og:title", content: "Today's huddle · Store Coach by Manyavar" },
+      { property: "og:description", content: "Run the morning huddle from each person's card, with mentors and callbacks." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -23,10 +23,5 @@ export const Route = createFileRoute("/_authenticated/store")({
 function StorePage() {
   const { profile } = Route.useRouteContext();
   const query = useCoachView();
-  return (
-    <>
-      <PageIntro eyebrow="Store lead" title={profile.display_name} meta={`Morning huddle for ${profile.scope_id}`} />
-      <ManagerGate query={query}>{(v) => <StoreView view={v} storeId={profile.scope_id ?? ""} />}</ManagerGate>
-    </>
-  );
+  return <ManagerGate query={query}>{(v) => <StoreView view={v} storeId={profile.scope_id ?? ""} mode="lead" />}</ManagerGate>;
 }

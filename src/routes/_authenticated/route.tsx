@@ -20,7 +20,7 @@ export const Route = createFileRoute("/_authenticated")({
     return { userId: data.user.id, profile };
   },
   pendingComponent: () => (
-    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+    <div className="mx-auto max-w-[90rem] px-4 py-12 sm:px-8">
       <ViewSkeleton />
     </div>
   ),
@@ -37,7 +37,8 @@ function AuthedLayout() {
       <AppShell profile={profile}>
         <Outlet />
       </AppShell>
-      {showChat && <ChatDrawer userId={userId} />}
+      {/* On /am the assistant sits inline in the right column on wide screens. */}
+      {showChat && <ChatDrawer userId={userId} {...(pathname === "/am" ? { fabClassName: "lg:hidden" } : {})} />}
     </ReplayProvider>
   );
 }

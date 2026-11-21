@@ -1,26 +1,95 @@
-import { useState } from "react";
-import { Check, ChevronDown, Copy, RotateCcw, X } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { Check, Copy, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import type { FollowupView, Issue } from "@/lib/coach/types";
-import { RESULT_LABEL, formatRupees, formatShortDate } from "@/lib/coach/format";
+import { RESULT_LABEL, formatDayMonth, formatRupees } from "@/lib/coach/format";
 import { addDays } from "@/lib/coach/logic";
 import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
-import { LeverChip, resultTone } from "./primitives";
-import { useLocalStatus } from "./use-local-status";
+import { Callout, Chip, LeverChip, resultText } from "./primitives";
+import { statusKey, useActionStatus } from "./use-action-status";
 
-type IssueStatus = "done" | "dismissed";
+export type IssueStatus = "done" | "dismissed";
 
 export function whatsappText(issue: Issue): string {
   return [
     `*${issue.title}* (${issue.store_id})`,
-    `Cause: ${issue.cause}`,
-    `Do this: ${issue.action}`,
-    `Who: ${issue.who}`,
-    `When: ${issue.when}`,
-    `At stake: ${formatRupees(issue.rupees)} per 4 weeks`,
+    issue.cause,
+    `*Do this · ${issue.when} · ${issue.who}*`,
+    issue.action,
+    `${formatRupees(issue.rupees)} at stake / 4 weeks`,
   ].join("\n");
+}
+
+export async function copyIssue(issue: Issue) {
+  try {
+    await navigator.clipboard.writeText(whatsappText(issue));
+    toast.success("Copied for WhatsApp", { description: `${issue.store_id} · ${issue.title}` });
+  } catch {
+    toast.error("Could not copy. Select the text and copy it by hand.");
+  }
+}
+
+/** Mark done / Dismiss / Copy for WhatsApp, saved to the signed-in person's account. */
+export function IssueActions({ issue, layout = "row" }: { issue: Issue; layout?: "row" | "stack" }) {
+  const [status, setStatus] = useActionStatus<IssueStatus>(statusKey.issue(issue.id));
+  const stack = layout === "stack";
+  return (
+    <div className={cn("flex flex-wrap items-center gap-3", stack && "grid grid-cols-2 gap-3")}>
+      {status ? (
+        <>
+          <span
+            className={cn(
+              "inline-flex h-11 items-center gap-2 rounded-full px-5 font-semibold",
+              status === "done" ? "bg-good-soft text-good" : "bg-secondary text-muted-foreground",
+              stack && "col-span-2 justify-center",
+            )}
+            role="status"
+          >
+            {status === "done" ? <Check className="size-4" /> : null}
+            {status === "done" ? "Done" : "Dismissed"}
+          </span>
+          <Button variant="quiet" onClick={() => setStatus(null)} className={cn(stack && "col-span-2")}>
+            <RotateCcw /> Undo
+          </Button>
+        </>
+      ) : (
+        <>
+          <Button onClick={() => setStatus("done")} className={cn(stack && "col-span-2 h-12")}>
+            Mark done
+          </Button>
+          <Button variant="secondary" onClick={() => setStatus("dismissed")} className={cn(stack && "col-span-2")}>
+            Dismiss
+          </Button>
+        </>
+      )}
+      <Button variant="secondary" onClick={() => void copyIssue(issue)} className={cn(stack && "col-span-2")}>
+        <Copy className={cn(!stack && "hidden sm:block")} /> Copy for WhatsApp
+      </Button>
+    </div>
+  );
+}
+
+/** "Follow-up, 26 Oct · Store bills vs all other stores…" or when the follow-up is due. */
+export function FollowupLine({ issue, followup, date }: { issue: Issue; followup?: FollowupView | undefined; date: string }) {
+  const latest = followup?.latest ?? null;
+  if (latest) {
+    return (
+      <p className="text-[0.95rem] leading-relaxed text-foreground">
+        <span className={cn("font-semibold", resultText[latest.result])}>Follow-up, {formatDayMonth(latest.on)}</span>
+        <span className="text-muted-foreground"> · </span>
+        {latest.text}
+      </p>
+    );
+  }
+  const lastSend = followup?.sends[followup.sends.length - 1] ?? issue.id.slice(-10);
+  const due = addDays(lastSend, 7);
+  return (
+    <p className="text-[0.95rem] text-muted-foreground">
+      <span className="font-semibold">Follow-up due {formatDayMonth(due)}</span>
+      {due > date ? " · the number is measured again 7 days after sending." : " · measured in the next run."}
+    </p>
+  );
 }
 
 export function IssueCard({
@@ -34,127 +103,51 @@ export function IssueCard({
   date: string;
   interactive?: boolean;
 }) {
-  const [status, setStatus] = useLocalStatus<IssueStatus>(issue.id);
-  const [mathOpen, setMathOpen] = useState(false);
-  const latest = followup?.latest ?? null;
-  const lastSend = followup?.sends[followup.sends.length - 1] ?? issue.id.slice(-10);
-  const dueOn = addDays(lastSend, 7);
-
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(whatsappText(issue));
-      toast.success("Copied for WhatsApp", { description: `${issue.store_id} · ${issue.title}` });
-    } catch {
-      toast.error("Could not copy. Select the text and copy it by hand.");
-    }
-  }
-
+  const [status] = useActionStatus<IssueStatus>(statusKey.issue(issue.id));
   return (
     <article
-      className={cn(
-        "coach-card animate-rise overflow-hidden transition-opacity",
-        status === "dismissed" && "opacity-60",
-      )}
+      className={cn("surface animate-rise p-6 transition-opacity sm:p-8", status === "dismissed" && "opacity-55")}
       aria-label={`Issue ${issue.rank}: ${issue.title}`}
     >
-      <div className="flex gap-4 p-4 sm:p-5">
-        <div className="flex min-w-0 flex-1 flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="grid size-7 place-items-center rounded-full bg-maroon text-sm font-extrabold text-on-maroon">
-              {issue.rank}
-            </span>
-            <LeverChip lever={issue.lever} />
-            <span className="text-sm font-semibold text-foreground">{issue.store_id}</span>
-            <span className="text-sm text-muted-foreground">{issue.city}</span>
-            {status && (
-              <span
-                className={cn(
-                  "rounded-full px-2 py-0.5 text-xs font-bold",
-                  status === "done" ? "bg-improved-soft text-improved" : "bg-secondary text-muted-foreground",
-                )}
-              >
-                {status === "done" ? "Done" : "Dismissed"}
-              </span>
-            )}
-          </div>
-          <h3 className="text-lg font-bold leading-snug text-foreground">{issue.title}</h3>
-          <p className="text-[0.95rem] leading-relaxed text-muted-foreground">{issue.cause}</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-baseline gap-2.5">
+          <span className="tabular text-lg text-muted-foreground">{issue.rank}</span>
+          <span className="figure text-[2.6rem] text-foreground sm:text-5xl">{formatRupees(issue.rupees)}</span>
+          <span className="text-[0.95rem] text-muted-foreground">at stake / 4 weeks</span>
         </div>
-        <div className="shrink-0 text-right">
-          <div className="rupee-figure text-3xl text-maroon sm:text-4xl">{formatRupees(issue.rupees)}</div>
-          <div className="mt-1 text-xs font-medium text-muted-foreground">at stake / 4 wks</div>
+        <div className="flex items-center gap-2">
+          <LeverChip lever={issue.lever} />
+          <Chip tone="neutral">{issue.store_id}</Chip>
         </div>
       </div>
 
-      <div className="mx-4 rounded-xl border-l-4 border-marigold bg-marigold-soft px-4 py-3 sm:mx-5">
-        <div className="text-xs font-extrabold uppercase tracking-wide text-marigold-ink">Do this</div>
-        <p className="mt-1 text-[0.95rem] font-medium leading-relaxed text-foreground">{issue.action}</p>
-        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-          <span>
-            <span className="text-muted-foreground">When · </span>
-            <span className="font-semibold text-foreground">{issue.when}</span>
-          </span>
-          <span>
-            <span className="text-muted-foreground">Who · </span>
-            <span className="font-semibold text-foreground">{issue.who}</span>
-          </span>
+      <h3 className="mt-4 text-2xl font-semibold leading-snug text-foreground sm:text-[1.7rem]">
+        <Link
+          to="/issue/$issueId"
+          params={{ issueId: issue.id }}
+          className="rounded-md decoration-2 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring"
+        >
+          {issue.title}
+        </Link>
+      </h3>
+      <p className="mt-3 text-[1.05rem] leading-relaxed text-foreground/80 sm:text-lg">{issue.cause}</p>
+
+      <Callout className="mt-5" label={`Do this · ${issue.when} · ${issue.who}`}>
+        {issue.action}
+      </Callout>
+
+      <p className="mt-4 text-[0.95rem] leading-relaxed text-muted-foreground">How it's worked out: {issue.math}</p>
+      <div className="mt-3">
+        <FollowupLine issue={issue} followup={followup} date={date} />
+      </div>
+
+      {interactive && (
+        <div className="mt-6">
+          <IssueActions issue={issue} />
         </div>
-      </div>
-
-      <div className="px-4 pt-3 sm:px-5">
-        <Collapsible open={mathOpen} onOpenChange={setMathOpen}>
-          <CollapsibleTrigger className="flex items-center gap-1 text-sm font-semibold text-maroon hover:underline">
-            <ChevronDown className={cn("size-4 transition-transform", mathOpen && "rotate-180")} />
-            How {formatRupees(issue.rupees)} was worked out
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <p className="tabular mt-2 rounded-lg bg-secondary px-3 py-2 text-sm leading-relaxed text-secondary-foreground">
-              {issue.math}
-              <span className="mt-1 block text-xs text-muted-foreground">KPI tracked: {issue.kpi}</span>
-            </p>
-          </CollapsibleContent>
-        </Collapsible>
-      </div>
-
-      <div className="px-4 pt-3 sm:px-5">
-        {latest ? (
-          <div className={cn("rounded-xl border px-3 py-2 text-sm", resultTone[latest.result])}>
-            <span className="font-bold">
-              7-day follow-up · {formatShortDate(latest.on)} · {RESULT_LABEL[latest.result]}
-            </span>
-            <p className="mt-0.5 leading-relaxed text-foreground/85">{latest.text}</p>
-          </div>
-        ) : (
-          <div className="rounded-xl border border-dashed border-border px-3 py-2 text-sm text-muted-foreground">
-            7-day follow-up due {formatShortDate(dueOn)}
-            {dueOn <= date ? "" : " — the number is re-measured then."}
-          </div>
-        )}
-      </div>
-
-      {interactive ? (
-        <div className="flex flex-wrap items-center gap-2 px-4 py-4 sm:px-5">
-          {status ? (
-            <Button variant="quiet" size="sm" onClick={() => setStatus(null)}>
-              <RotateCcw /> Undo
-            </Button>
-          ) : (
-            <>
-              <Button variant="default" size="sm" onClick={() => setStatus("done")}>
-                <Check /> Mark done
-              </Button>
-              <Button variant="soft" size="sm" onClick={() => setStatus("dismissed")}>
-                <X /> Dismiss
-              </Button>
-            </>
-          )}
-          <Button variant="outline" size="sm" className="ml-auto" onClick={copy}>
-            <Copy /> Copy for WhatsApp
-          </Button>
-        </div>
-      ) : (
-        <div className="h-4" />
       )}
     </article>
   );
 }
+
+export { RESULT_LABEL };

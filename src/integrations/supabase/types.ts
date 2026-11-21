@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      action_status: {
+        Row: {
+          id: string
+          item_key: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          item_key: string
+          status: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          item_key?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       chat_messages: {
         Row: {
           answer: string
@@ -53,7 +77,7 @@ export type Database = {
           display_name: string
           email: string
           id: string
-          role: Database["public"]["Enums"]["coach_role"]
+          role: Database["public"]["Enums"]["coach_role"] | null
           scope_id: string | null
         }
         Insert: {
@@ -61,7 +85,7 @@ export type Database = {
           display_name: string
           email: string
           id: string
-          role: Database["public"]["Enums"]["coach_role"]
+          role?: Database["public"]["Enums"]["coach_role"] | null
           scope_id?: string | null
         }
         Update: {
@@ -69,8 +93,32 @@ export type Database = {
           display_name?: string
           email?: string
           id?: string
+          role?: Database["public"]["Enums"]["coach_role"] | null
+          scope_id?: string | null
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["coach_role"]
+          scope_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["coach_role"]
+          scope_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
           role?: Database["public"]["Enums"]["coach_role"]
           scope_id?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -80,6 +128,13 @@ export type Database = {
     }
     Functions: {
       auth_user_id_by_email: { Args: { _email: string }; Returns: string }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["coach_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       coach_role: "hq" | "zonal" | "am" | "store_lead" | "salesperson"

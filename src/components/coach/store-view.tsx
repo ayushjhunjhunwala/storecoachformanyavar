@@ -1,235 +1,246 @@
-import { Info, MessageSquareText, PhoneCall, Users } from "lucide-react";
-import type { ManagerView, StoreBundle, TeamRow } from "@/lib/coach/types";
-import { followupKey } from "@/lib/coach/logic";
+import { Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { CalendarDays, Check, RotateCcw } from "lucide-react";
+import type { CallbackView, Issue, ManagerView, StoreBundle, TeamRow } from "@/lib/coach/types";
 import {
   FOCUS_LABEL,
+  cardBody,
   formatDateWithYear,
-  RESULT_LABEL,
   formatNumber,
   formatPct,
   formatRupees,
+  formatRupeesPrecise,
   formatShortDate,
 } from "@/lib/coach/format";
+import { cardStatusQueryOptions } from "@/lib/coach/queries";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { EmptyNote, LeverChip, Panel, StatTile, resultTone } from "./primitives";
+import { MentorPairs } from "./mentor-pairs";
+import { Card, DataTable, EmptyNote, PageHeader, StatTile } from "./primitives";
+import { statusKey, useActionStatus } from "./use-action-status";
+import type { IssueStatus } from "./issue-card";
 
-const KIND_LABEL: Record<string, string> = {
-  praise: "Praise",
-  kur: "Jacket with kurta",
-  ipb: "Items per bill",
-  disc: "Discount",
-  shw: "Sherwani add-ons",
-};
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 function flagRow(t: TeamRow): boolean {
   return (t.wkend_off ?? 0) >= 0.5 || (t.disc ?? 0) >= 0.03;
 }
 
-function compare(value: number | null | undefined, ref: number | null | undefined): "good" | "bad" | "default" {
-  if (value == null || ref == null) return "default";
-  return value >= ref ? "good" : "bad";
+function KpiTiles({ bundle, view }: { bundle: StoreBundle; view: ManagerView }) {
+  const k = bundle.kpi;
+  if (!k) return <EmptyNote>No store numbers for this date.</EmptyNote>;
+  const tier = bundle.meta.tier;
+  const diwaliAhead = Object.values(view.upcoming)
+    .flat()
+    .some((u) => u.festival === "Diwali" && u.date > view.date);
+  const convUp = k.conv != null && k.conv_tier != null ? k.conv >= k.conv_tier : null;
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <StatTile
+        label="Conversion · 28 days"
+        value={formatPct(k.conv)}
+        tone={convUp == null ? "neutral" : convUp ? "good" : "bad"}
+        {...(convUp == null ? {} : { arrow: convUp ? ("up" as const) : ("down" as const) })}
+        delta={
+          k.new_store
+            ? `${formatPct(k.conv_tier)} ${tier} peers · new store`
+            : `${formatPct(k.conv_tier)} ${tier} peers · ${formatPct(k.ly_conv)} last year`
+        }
+      />
+      <StatTile
+        label="Items per bill"
+        value={k.ipb.toFixed(2)}
+        tone={k.ipb >= k.ipb_tier ? "good" : "bad"}
+        arrow={k.ipb >= k.ipb_tier ? "up" : "down"}
+        delta={`${k.ipb_tier.toFixed(2)} ${tier} peers`}
+      />
+      <StatTile
+        label="Average bill"
+        value={formatRupeesPrecise(k.atv)}
+        tone={k.atv >= k.atv_tier ? "good" : "bad"}
+        arrow={k.atv >= k.atv_tier ? "up" : "down"}
+        delta={`${formatRupeesPrecise(k.atv_tier)} ${tier} peers`}
+      />
+      <StatTile
+        label="Bills · 28 days"
+        value={formatNumber(k.bills)}
+        delta={
+          k.new_store || !k.ly_bills
+            ? `New store, opened ${formatDateWithYear(bundle.meta.opened_on)}`
+            : `${formatNumber(k.ly_bills)} same weeks last year${diwaliAhead ? " (Diwali shift)" : ""}`
+        }
+      />
+    </div>
+  );
 }
 
-export function StoreView({ view, storeId }: { view: ManagerView; storeId: string }) {
+function ActionBanner({ issue, amName, interactive }: { issue: Issue; amName: string; interactive: boolean }) {
+  const [status, setStatus] = useActionStatus<IssueStatus>(statusKey.issue(issue.id));
+  return (
+    <div className="surface flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-7">
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-primary">From {amName}, this week</p>
+        <p className="mt-1 text-[1.05rem] leading-relaxed text-foreground sm:text-lg">{issue.action}</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {issue.title} · {issue.when}
+        </p>
+      </div>
+      {interactive &&
+        (status === "done" ? (
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="inline-flex h-11 items-center gap-2 rounded-full bg-good-soft px-5 font-semibold text-good" role="status">
+              <Check className="size-4" /> Done
+            </span>
+            <Button variant="quiet" onClick={() => setStatus(null)} aria-label="Undo mark done">
+              <RotateCcw />
+            </Button>
+          </div>
+        ) : (
+          <Button className="shrink-0" onClick={() => setStatus("done")}>
+            Mark done
+          </Button>
+        ))}
+    </div>
+  );
+}
+
+function CardsOnFloor({ bundle, date }: { bundle: StoreBundle; date: string }) {
+  const statuses = useQuery(cardStatusQueryOptions(date));
+  const maxWords = Math.max(0, ...bundle.cards.map((c) => c.words));
+  return (
+    <Card
+      title="Cards on the floor today"
+      aside={
+        bundle.cards.length
+          ? `${bundle.cards.length} people · ${maxWords < 60 ? "all under 60 words" : `longest ${maxWords} words`}`
+          : undefined
+      }
+    >
+      {bundle.cards.length === 0 ? (
+        <p className="text-[1.05rem] text-muted-foreground">No cards for this date.</p>
+      ) : (
+        <ul className="divide-y divide-border border-t border-border">
+          {bundle.cards.map((c) => {
+            const s = statuses.data?.[c.sp];
+            return (
+              <li key={c.sp} className="grid gap-x-6 gap-y-1 py-4 sm:grid-cols-[9.5rem_minmax(0,1fr)_auto]">
+                <div>
+                  <p className="text-[1.05rem] font-semibold text-foreground">{c.name}</p>
+                  <p className="text-sm text-muted-foreground">{FOCUS_LABEL[c.kind] ?? c.kind}</p>
+                </div>
+                <p className="text-[1.02rem] leading-relaxed text-foreground">{cardBody(c.text, c.name)}</p>
+                <p
+                  className={cn(
+                    "text-sm sm:text-right",
+                    s === "done" ? "font-medium text-good" : s === "not_today" ? "font-medium text-warn" : "text-muted-foreground",
+                  )}
+                >
+                  {statuses.isPending ? "…" : s === "done" ? "Done" : s === "not_today" ? "Not today" : "Pending"}
+                </p>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
+function CallbacksCard({ bundle, view }: { bundle: StoreBundle; view: ManagerView }) {
+  const state = bundle.meta.state;
+  const firstWedding = (view.upcoming[state] ?? []).find((u) => u.wedding && u.date > view.date);
+  const month = firstWedding ? MONTH_NAMES[Number(firstWedding.date.slice(5, 7)) - 1] : null;
+  const items: CallbackView[] = bundle.callbacks.items;
+  return (
+    <Card
+      title={month ? `Call before the ${month} wedding dates` : "Customers to call"}
+      subtitle={`${formatNumber(bundle.callbacks.total)} past customers haven't been back. Top ${items.length} by value.`}
+    >
+      {items.length === 0 ? (
+        <p className="text-[1.05rem] text-muted-foreground">No callbacks listed.</p>
+      ) : (
+        <ul className="divide-y divide-border border-t border-border">
+          {items.map((c) => (
+            <li key={c.cust + c.date} className="py-3">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="tabular text-[1.02rem] text-foreground">{c.cust}</span>
+                <span className="tabular font-semibold text-foreground">{formatRupees(c.value)}</span>
+              </div>
+              <p className="text-sm text-muted-foreground">{c.bought}</p>
+              <p className="text-xs text-muted-foreground">
+                {formatDateWithYear(c.date)} · served by {c.served_by} · {c.owner_name ? `call: ${c.owner_name}` : "unassigned"}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
+export function StoreView({
+  view,
+  storeId,
+  mode = "manager",
+}: {
+  view: ManagerView;
+  storeId: string;
+  /** "lead" is the store lead's own huddle page; "manager" embeds it in another dashboard. */
+  mode?: "lead" | "manager";
+}) {
   const bundle: StoreBundle | undefined = view.stores[storeId];
   if (!bundle) return <EmptyNote>This store is not in your view.</EmptyNote>;
-  const k = bundle.kpi;
   const issues = view.digest.filter((i) => i.store_id === storeId).sort((a, b) => a.rank - b.rank);
-  const followups = new Map(view.followups.map((f) => [f.key, f]));
+  const am = view.area_managers.find((a) => a.area_manager_id === bundle.meta.area_manager_id);
+  const amName = am?.name ?? "your area manager";
+  const kicker = `${storeId} · ${bundle.meta.city} · tier ${bundle.meta.tier}`;
+  const lead = mode === "lead";
 
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <div>
-          <h2 className="text-2xl font-extrabold tracking-tight text-foreground">
-            {storeId} <span className="font-semibold text-muted-foreground">· {bundle.meta.city}</span>
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Tier {bundle.meta.tier} · opened {formatDateWithYear(bundle.meta.opened_on)}
-            {bundle.lead_name ? ` · store lead ${bundle.lead_name}` : ""} · last 4 weeks
-          </p>
-        </div>
-      </div>
-
-      {k ? (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <StatTile
-            label="Conversion"
-            value={formatPct(k.conv)}
-            tone={compare(k.conv, k.conv_tier)}
-            hint={
-              <>
-                Tier {formatPct(k.conv_tier)} · last year {formatPct(k.ly_conv)}
-              </>
-            }
-          />
-          <StatTile
-            label="Items per bill"
-            value={k.ipb.toFixed(2)}
-            tone={compare(k.ipb, k.ipb_tier)}
-            hint={<>Tier {k.ipb_tier.toFixed(2)}</>}
-          />
-          <StatTile
-            label="Average bill"
-            value={formatRupees(k.atv)}
-            tone={compare(k.atv, k.atv_tier)}
-            hint={<>Tier {formatRupees(k.atv_tier)}</>}
-          />
-          <StatTile
-            label="Bills"
-            value={formatNumber(k.bills)}
-            tone={k.ly_bills ? compare(k.bills, k.ly_bills) : "default"}
-            hint={k.ly_bills ? <>vs {formatNumber(k.ly_bills)} same weeks last year</> : <>No last-year bills</>}
-          />
-        </div>
-      ) : (
-        <EmptyNote>No store numbers for this date.</EmptyNote>
-      )}
-
-      {(bundle.flags.length > 0 || k?.new_store) && (
-        <div className="flex flex-col gap-2">
-          {k?.new_store && (
-            <p className="flex items-start gap-2 rounded-xl border border-teal/30 bg-teal-soft px-4 py-3 text-sm text-foreground">
-              <Info className="mt-0.5 size-4 shrink-0 text-teal" />
-              <span>
-                <b>Data note:</b> new store, opened {formatDateWithYear(bundle.meta.opened_on)}. It is compared with{" "}
-                {bundle.meta.tier}-tier peers only, not with last year.
-              </span>
-            </p>
-          )}
-          {bundle.flags.map((f) => (
-            <p
-              key={f.type}
-              className="flex items-start gap-2 rounded-xl border border-marigold/40 bg-marigold-soft px-4 py-3 text-sm text-foreground"
-            >
-              <Info className="mt-0.5 size-4 shrink-0 text-marigold-ink" />
-              <span>
-                <b>Data note:</b> {f.type}. {f.detail} Routed to {f.routed_to}.
-              </span>
-            </p>
-          ))}
-        </div>
-      )}
-
-      <Panel title="This week's actions from your area manager" subtitle={`Digest of ${formatShortDate(view.digest_date)}`}>
-        {issues.length ? (
-          <ul className="flex flex-col gap-3">
-            {issues.map((i) => {
-              const f = followups.get(followupKey(i));
-              return (
-                <li key={i.id} className="rounded-xl border border-border bg-ivory p-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <LeverChip lever={i.lever} />
-                    <span className="font-bold text-foreground">{i.title}</span>
-                    <span className="ml-auto rupee-figure text-lg text-maroon">{formatRupees(i.rupees)}</span>
-                  </div>
-                  <p className="mt-2 text-sm leading-relaxed text-foreground">{i.action}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {i.when} · {i.who}
-                  </p>
-                  {f?.latest && (
-                    <p className={cn("mt-2 rounded-lg border px-2.5 py-1.5 text-xs", resultTone[f.latest.result])}>
-                      <b>
-                        Follow-up {formatShortDate(f.latest.on)} · {RESULT_LABEL[f.latest.result]}:
-                      </b>{" "}
-                      <span className="text-foreground/85">{f.latest.text}</span>
-                    </p>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <p className="text-sm text-muted-foreground">No actions for {storeId} this week.</p>
-        )}
-      </Panel>
-
-      <div className="grid gap-5 xl:grid-cols-2">
-        <Panel
-          title={
-            <span className="flex items-center gap-2">
-              <MessageSquareText className="size-4 text-maroon" /> Huddle sheet
-            </span>
+    <div className="flex flex-col gap-6">
+      {lead ? (
+        <PageHeader
+          kicker={kicker}
+          title="Today's huddle"
+          actions={
+            <Button variant="white" asChild>
+              <Link to="/store/roster">
+                <CalendarDays /> Roster planner
+              </Link>
+            </Button>
           }
-          subtitle={`Today's cards, ${bundle.cards.length} people`}
-        >
-          {bundle.cards.length ? (
-            <ul className="flex max-h-[34rem] flex-col gap-2 overflow-y-auto pr-1">
-              {bundle.cards.map((c) => (
-                <li key={c.sp} className="rounded-xl border border-border p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-semibold text-foreground">{c.name}</span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="rounded-full bg-secondary px-2 py-0.5 text-[0.7rem] font-bold text-secondary-foreground">
-                        {KIND_LABEL[c.kind] ?? c.kind}
-                      </span>
-                      <span className="tabular text-xs text-muted-foreground">{c.words} words</span>
-                    </span>
-                  </div>
-                  <p className="mt-1 text-sm leading-relaxed text-foreground/90">{c.text}</p>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-muted-foreground">No cards for this date.</p>
-          )}
-        </Panel>
+        />
+      ) : (
+        <div>
+          <p className="text-[0.95rem] text-muted-foreground">
+            {bundle.lead_name ? `Store lead ${bundle.lead_name}` : "Store"} · opened {formatDateWithYear(bundle.meta.opened_on)}
+          </p>
+          <h2 className="mt-1 text-3xl font-bold tracking-tight text-foreground">{kicker}</h2>
+        </div>
+      )}
 
-        <div className="flex flex-col gap-5">
-          <Panel
-            title={
-              <span className="flex items-center gap-2">
-                <Users className="size-4 text-teal" /> Mentor pairs
-              </span>
-            }
-          >
-            {bundle.mentors.length ? (
-              <ul className="flex flex-col divide-y divide-border">
-                {bundle.mentors.map((m) => (
-                  <li key={m.mentee + m.mentor} className="flex flex-wrap items-baseline justify-between gap-2 py-2 text-sm">
-                    <span>
-                      <span className="font-semibold text-foreground">{m.mentee_name}</span>
-                      <span className="text-muted-foreground"> learns from </span>
-                      <span className="font-semibold text-foreground">{m.mentor_name}</span>
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {FOCUS_LABEL[m.focus] ?? m.focus} · {formatPct(m.overlap, 0)} shifts together
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-muted-foreground">No mentor pairs today.</p>
-            )}
-          </Panel>
+      <KpiTiles bundle={bundle} view={view} />
 
-          <Panel
-            title={
-              <span className="flex items-center gap-2">
-                <PhoneCall className="size-4 text-maroon" /> Top callbacks
-              </span>
-            }
-            subtitle={`Top ${bundle.callbacks.items.length} of ${formatNumber(bundle.callbacks.total)} past customers to call`}
-          >
-            {bundle.callbacks.items.length ? (
-              <ul className="flex flex-col divide-y divide-border">
-                {bundle.callbacks.items.map((c) => (
-                  <li key={c.cust + c.date} className="grid grid-cols-[1fr_auto] gap-x-3 py-2 text-sm">
-                    <span className="font-semibold text-foreground">
-                      {c.cust} <span className="font-normal text-muted-foreground">· {formatDateWithYear(c.date)}</span>
-                    </span>
-                    <span className="tabular font-bold text-maroon">{formatRupees(c.value)}</span>
-                    <span className="col-span-2 text-xs text-muted-foreground">
-                      {c.bought} · served by {c.served_by}
-                      {c.owner_name ? ` · call: ${c.owner_name}` : " · call: unassigned"}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-muted-foreground">No callbacks listed.</p>
-            )}
-          </Panel>
+      {bundle.flags.map((f) => (
+        <p key={f.type} className="rounded-2xl bg-warn-soft px-5 py-3.5 text-[0.95rem] leading-relaxed text-warn">
+          <b className="font-semibold">Data note: {f.type}.</b> {f.detail} Routed to {f.routed_to}.
+        </p>
+      ))}
+
+      {issues.length ? (
+        issues.map((i) => <ActionBanner key={i.id} issue={i} amName={amName} interactive={lead} />)
+      ) : (
+        <div className="surface p-6 sm:p-7">
+          <p className="text-sm font-semibold text-primary">From {amName}, this week</p>
+          <p className="mt-1 text-[1.05rem] text-muted-foreground">No actions for {storeId} in the digest of {formatShortDate(view.digest_date)}.</p>
+        </div>
+      )}
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,27rem)]">
+        <CardsOnFloor bundle={bundle} date={view.date} />
+        <div className="flex flex-col gap-6">
+          <MentorPairs storeId={storeId} date={view.date} mentors={bundle.mentors} team={bundle.team} interactive={lead} />
+          <CallbacksCard bundle={bundle} view={view} />
         </div>
       </div>
 
@@ -240,91 +251,41 @@ export function StoreView({ view, storeId }: { view: ManagerView; storeId: strin
 
 export function TeamTable({ team, asOf }: { team: TeamRow[]; asOf: string | null }) {
   return (
-    <Panel
+    <Card
       title="Team"
-      subtitle={`${team.length} people · stats as of ${formatShortDate(asOf)} · shaded: weekend off ≥ 50% or discount ≥ 3%`}
-      bodyClassName="px-0 py-0 sm:px-0"
+      aside={`${team.length} people · as of ${formatShortDate(asOf)}`}
+      subtitle="Shaded: weekend off at least 50% or discount at least 3%."
     >
       {team.length === 0 ? (
-        <div className="p-4">
-          <EmptyNote>No team stats yet.</EmptyNote>
-        </div>
+        <EmptyNote>No team stats yet.</EmptyNote>
       ) : (
-        <>
-          <div className="hidden overflow-x-auto md:block">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-secondary/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                  <th className="px-5 py-2.5 font-semibold">Name</th>
-                  <th className="px-3 py-2.5 text-right font-semibold">Bills 28d</th>
-                  <th className="px-3 py-2.5 text-right font-semibold">Items/bill</th>
-                  <th className="px-3 py-2.5 text-right font-semibold">Kurta + jacket</th>
-                  <th className="px-3 py-2.5 text-right font-semibold">Discount</th>
-                  <th className="px-3 py-2.5 text-right font-semibold">Weekend off</th>
-                  <th className="px-5 py-2.5 text-right font-semibold">Repeat</th>
-                </tr>
-              </thead>
-              <tbody className="tabular">
-                {team.map((t) => (
-                  <tr
-                    key={t.salesperson_id}
-                    className={cn("border-b border-border/60 last:border-0", flagRow(t) && "bg-worse-soft")}
-                  >
-                    <td className="px-5 py-2.5 font-semibold text-foreground">{t.name}</td>
-                    <td className="px-3 py-2.5 text-right">{t.bills28}</td>
-                    <td className="px-3 py-2.5 text-right">{t.ipb == null ? "—" : t.ipb.toFixed(2)}</td>
-                    <td className="px-3 py-2.5 text-right">
-                      {formatPct(t.kur_rate)} <span className="text-xs text-muted-foreground">of {t.kur}</span>
-                    </td>
-                    <td className={cn("px-3 py-2.5 text-right", (t.disc ?? 0) >= 0.03 && "font-bold text-worse")}>
-                      {formatPct(t.disc)}
-                    </td>
-                    <td className={cn("px-3 py-2.5 text-right", (t.wkend_off ?? 0) >= 0.5 && "font-bold text-worse")}>
-                      {formatPct(t.wkend_off, 0)}
-                    </td>
-                    <td className="px-5 py-2.5 text-right">{formatPct(t.repeat)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <ul className="flex flex-col divide-y divide-border md:hidden">
-            {team.map((t) => (
-              <li key={t.salesperson_id} className={cn("px-4 py-3", flagRow(t) && "bg-worse-soft")}>
-                <p className="font-semibold text-foreground">{t.name}</p>
-                <dl className="tabular mt-1 grid grid-cols-3 gap-x-3 gap-y-1 text-xs">
-                  <div>
-                    <dt className="text-muted-foreground">Bills 28d</dt>
-                    <dd className="font-semibold">{t.bills28}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Items/bill</dt>
-                    <dd className="font-semibold">{t.ipb == null ? "—" : t.ipb.toFixed(2)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Kurta + jacket</dt>
-                    <dd className="font-semibold">{formatPct(t.kur_rate)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Discount</dt>
-                    <dd className={cn("font-semibold", (t.disc ?? 0) >= 0.03 && "text-worse")}>{formatPct(t.disc)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Weekend off</dt>
-                    <dd className={cn("font-semibold", (t.wkend_off ?? 0) >= 0.5 && "text-worse")}>
-                      {formatPct(t.wkend_off, 0)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Repeat</dt>
-                    <dd className="font-semibold">{formatPct(t.repeat)}</dd>
-                  </div>
-                </dl>
-              </li>
-            ))}
-          </ul>
-        </>
+        <DataTable
+          minWidth={720}
+          columns={[
+            { label: "Name" },
+            { label: "Bills · 28 days", align: "right" },
+            { label: "Items per bill", align: "right" },
+            { label: "Kurta + jacket", align: "right" },
+            { label: "Discount", align: "right" },
+            { label: "Weekend off", align: "right" },
+            { label: "Repeat", align: "right" },
+          ]}
+        >
+          {team.map((t) => (
+            <tr key={t.salesperson_id} className={cn(flagRow(t) && "bg-bad-soft")}>
+              <td className="font-medium text-foreground">{t.name}</td>
+              <td className="text-right">{t.bills28}</td>
+              <td className="text-right">{t.ipb == null ? "—" : t.ipb.toFixed(2)}</td>
+              <td className="text-right">
+                {formatPct(t.kur_rate)} <span className="text-sm text-muted-foreground">of {t.kur}</span>
+              </td>
+              <td className={cn("text-right", (t.disc ?? 0) >= 0.03 && "font-semibold text-bad")}>{formatPct(t.disc)}</td>
+              <td className={cn("text-right", (t.wkend_off ?? 0) >= 0.5 && "font-semibold text-bad")}>{formatPct(t.wkend_off, 0)}</td>
+              <td className="text-right">{formatPct(t.repeat)}</td>
+            </tr>
+          ))}
+        </DataTable>
       )}
-    </Panel>
+    </Card>
   );
 }

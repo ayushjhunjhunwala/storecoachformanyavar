@@ -1,161 +1,119 @@
-import { CalendarHeart, Database, MapPinned, Star } from "lucide-react";
+import type { ReactNode } from "react";
 import type { ManagerView } from "@/lib/coach/types";
 import { followupKey } from "@/lib/coach/logic";
-import { formatPct, formatRupees, formatShortDate } from "@/lib/coach/format";
+import { describeUpcoming, formatPct, formatRupees, formatWeekdayDayMonth } from "@/lib/coach/format";
 import { IssueCard } from "./issue-card";
-import { EmptyNote, Panel } from "./primitives";
+import { Card, Chip, EmptyNote, PageHeader } from "./primitives";
 
+export function digestHeadline(count: number, rupees: number): string {
+  if (count === 0) return "No issues this week.";
+  return `${count} ${count === 1 ? "issue" : "issues"}. ${formatRupees(rupees)} at stake.`;
+}
 
-export function AmDigest({ view, amId, interactive = true }: { view: ManagerView; amId: string; interactive?: boolean }) {
+export function AmDigest({
+  view,
+  amId,
+  chat,
+  showManager = false,
+  interactive = true,
+}: {
+  view: ManagerView;
+  amId: string;
+  /** Inline Ask Store Coach card, shown at the top of the right column. */
+  chat?: ReactNode;
+  /** Name the area manager in the line above the headline (HQ / zone drill-down). */
+  showManager?: boolean;
+  interactive?: boolean;
+}) {
   const am = view.area_managers.find((a) => a.area_manager_id === amId);
-  const issues = view.digest
-    .filter((i) => i.area_manager_id === amId)
-    .sort((a, b) => a.rank - b.rank);
+  const issues = view.digest.filter((i) => i.area_manager_id === amId).sort((a, b) => a.rank - b.rank);
   const total = issues.reduce((sum, i) => sum + i.rupees, 0);
   const followups = new Map(view.followups.map((f) => [f.key, f]));
-  const storeIds = new Set(
-    view.store_order.filter((id) => view.stores[id]?.meta.area_manager_id === amId),
-  );
-  const firstStore = [...storeIds][0];
-  const state = firstStore ? view.stores[firstStore]?.meta.state : undefined;
+  const storeIds = view.store_order.filter((id) => view.stores[id]?.meta.area_manager_id === amId);
+  const state = storeIds[0] ? view.stores[storeIds[0]]?.meta.state : undefined;
   const market = view.market.filter((m) => m.city === am?.city);
-  const flags = view.flags.filter((f) => storeIds.has(f.store_id));
+  const flags = view.flags.filter((f) => storeIds.includes(f.store_id));
   const roles = view.roles.filter((r) => r.city === am?.city);
   const upcoming = (state ? view.upcoming[state] : undefined) ?? [];
+  const upcomingText = describeUpcoming(upcoming);
   const maxAlerts = am?.max_alerts_per_week ?? "5";
 
+  const kicker = [
+    `Week of ${formatWeekdayDayMonth(view.digest_date)}`,
+    showManager && am ? `${am.name}, ${am.city}` : null,
+    storeIds.join(", "),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
-    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
-      <div className="flex min-w-0 flex-col gap-4">
-        <div className="coach-card flex flex-wrap items-end justify-between gap-3 p-4 sm:p-5">
-          <div>
-            <p className="text-sm font-semibold text-muted-foreground">
-              Weekly digest · sent {formatShortDate(view.digest_date)} · {am?.name ?? amId} ({am?.city})
-            </p>
-            <p className="mt-1 text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
-              {issues.length} {issues.length === 1 ? "issue" : "issues"} this week ·{" "}
-              <span className="text-maroon">{formatRupees(total)}</span> at stake
-            </p>
-          </div>
-          <span className="rounded-full bg-secondary px-3 py-1 text-xs font-bold text-secondary-foreground">
-            Max {maxAlerts} a week, ranked by ₹
-          </span>
-        </div>
+    <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,25rem)] lg:gap-10">
+      <div className="flex min-w-0 flex-col gap-6">
+        <PageHeader
+          kicker={kicker}
+          title={digestHeadline(issues.length, total)}
+          sub={
+            issues.length
+              ? `Ranked by rupees over the next 4 weeks. At most ${maxAlerts} a week.`
+              : `Nothing in ${am?.city ?? "these stores"} is worth an action this week. At most ${maxAlerts} a week.`
+          }
+        />
         {issues.length === 0 ? (
-          <EmptyNote>No issues for {am?.name ?? amId} this week. The engine found nothing worth an action.</EmptyNote>
+          <EmptyNote className="surface py-10 text-base">The engine checked every store and found nothing to raise.</EmptyNote>
         ) : (
           issues.map((issue) => (
-            <IssueCard
-              key={issue.id}
-              issue={issue}
-              followup={followups.get(followupKey(issue))}
-              date={view.date}
-              interactive={interactive}
-            />
+            <IssueCard key={issue.id} issue={issue} followup={followups.get(followupKey(issue))} date={view.date} interactive={interactive} />
           ))
         )}
       </div>
 
-      <aside className="flex flex-col gap-4">
-        <Panel
-          title={
-            <span className="flex items-center gap-2">
-              <MapPinned className="size-4 text-teal" /> Held back · market issue
-            </span>
-          }
-          subtitle="A whole city slowing is sent to the zonal head, not you."
-        >
-          {market.length ? (
-            market.map((m) => (
-              <p key={m.city} className="text-sm leading-relaxed text-foreground">
+      <aside className="flex flex-col gap-6 lg:pt-2">
+        {chat}
+        <Card title="Recognise this week">
+          {roles.length ? (
+            <ul className="flex flex-col gap-3">
+              {roles.map((r) => (
+                <li key={r.sp} className="text-[1.05rem] leading-relaxed text-foreground">
+                  <b className="font-semibold">{r.name}</b>, {r.store_id}: {formatPct(r.rate)} of first-time customers came back, against{" "}
+                  {formatPct(r.city_med)} for {r.city}.
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-[1.05rem] text-muted-foreground">No one stands out in {am?.city ?? "these stores"} on this date.</p>
+          )}
+        </Card>
+
+        <Card title="Wedding dates ahead">
+          <p className="text-[1.05rem] leading-relaxed text-foreground/85">
+            {upcomingText ? `${upcomingText}. Keep weekly offs away from these dates.` : "No wedding dates or festivals in the calendar ahead."}
+          </p>
+        </Card>
+
+        {market.length > 0 && (
+          <Card title="Held back: market" aside={<Chip tone="info" size="sm">To zonal head</Chip>}>
+            {market.map((m) => (
+              <p key={m.city} className="text-[0.95rem] leading-relaxed text-foreground/85">
                 {m.text}
               </p>
-            ))
-          ) : (
-            <p className="text-sm text-muted-foreground">Nothing held back for {am?.city} today.</p>
-          )}
-        </Panel>
+            ))}
+          </Card>
+        )}
 
-        <Panel
-          title={
-            <span className="flex items-center gap-2">
-              <Database className="size-4 text-marigold-ink" /> Held back · data issue
-            </span>
-          }
-          subtitle="Sent to Data/IT so you are never blamed for a broken sensor."
-        >
-          {flags.length ? (
+        {flags.length > 0 && (
+          <Card title="Held back: data" aside={<Chip tone="warn" size="sm">To Data/IT</Chip>}>
             <ul className="flex flex-col gap-3">
               {flags.map((f) => (
-                <li key={f.store_id + f.type} className="text-sm">
+                <li key={f.store_id + f.type} className="text-[0.95rem] leading-relaxed">
                   <p className="font-semibold text-foreground">
-                    {f.store_id} · {f.type}
+                    {f.store_id}: {f.type}
                   </p>
-                  <p className="leading-relaxed text-muted-foreground">{f.detail}</p>
-                  <p className="mt-0.5 text-xs font-semibold text-marigold-ink">Routed to {f.routed_to}</p>
+                  <p className="text-muted-foreground">{f.detail}</p>
                 </li>
               ))}
             </ul>
-          ) : (
-            <p className="text-sm text-muted-foreground">No data problems in your stores today.</p>
-          )}
-        </Panel>
-
-        <Panel
-          title={
-            <span className="flex items-center gap-2">
-              <Star className="size-4 text-maroon" /> Role models · repeat customers
-            </span>
-          }
-        >
-          {roles.length ? (
-            <ul className="flex flex-col gap-2">
-              {roles.map((r) => (
-                <li key={r.sp} className="flex items-baseline justify-between gap-3 text-sm">
-                  <span>
-                    <span className="font-semibold text-foreground">{r.name}</span>{" "}
-                    <span className="text-muted-foreground">{r.store_id}</span>
-                  </span>
-                  <span className="tabular text-right">
-                    <span className="font-bold text-maroon">{formatPct(r.rate)}</span>
-                    <span className="text-muted-foreground"> vs {formatPct(r.city_med)} city</span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-muted-foreground">No role model named in {am?.city} today.</p>
-          )}
-        </Panel>
-
-        <Panel
-          title={
-            <span className="flex items-center gap-2">
-              <CalendarHeart className="size-4 text-maroon" /> Wedding dates ahead
-            </span>
-          }
-          subtitle={state}
-        >
-          {upcoming.length ? (
-            <div className="flex flex-wrap gap-1.5">
-              {upcoming.slice(0, 14).map((u) => (
-                <span
-                  key={u.date}
-                  className={
-                    u.festival
-                      ? "rounded-full bg-marigold px-2.5 py-1 text-xs font-bold text-accent-foreground"
-                      : "rounded-full bg-maroon-soft px-2.5 py-1 text-xs font-semibold text-maroon"
-                  }
-                >
-                  {formatShortDate(u.date)}
-                  {u.festival ? ` · ${u.festival}` : ""}
-                </span>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">No dates in the calendar ahead.</p>
-          )}
-        </Panel>
+          </Card>
+        )}
       </aside>
     </div>
   );

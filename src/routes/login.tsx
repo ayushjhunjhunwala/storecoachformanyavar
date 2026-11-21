@@ -1,23 +1,24 @@
 import { useState, type FormEvent } from "react";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, KeyRound, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { profileQueryOptions } from "@/lib/coach/queries";
 import { homeFor } from "@/lib/coach/logic";
-import { ROLE_LABEL } from "@/lib/coach/format";
 import { BrandMark } from "@/components/coach/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 const DEMO_PASSWORD = "Demo@2026";
+const DEMO_DOMAIN = "@storecoach.demo";
 const DEMO_ACCOUNTS = [
-  { role: "hq", email: "hq@storecoach.demo", scope: "All 20 stores" },
-  { role: "zonal", email: "zonal.north@storecoach.demo", scope: "North zone" },
-  { role: "am", email: "am01@storecoach.demo", scope: "Lucknow · AM-01" },
-  { role: "store_lead", email: "lead.lko02@storecoach.demo", scope: "LKO-02" },
-  { role: "salesperson", email: "sp1019@storecoach.demo", scope: "SP1019 · LKO-02" },
+  { label: "HQ", user: "hq" },
+  { label: "Zonal head", user: "zonal.north" },
+  { label: "Area manager", user: "am01" },
+  { label: "Store lead", user: "lead.lko02" },
+  { label: "Salesperson", user: "sp1019" },
 ] as const;
 
 export const Route = createFileRoute("/login")({
@@ -26,13 +27,13 @@ export const Route = createFileRoute("/login")({
     typeof search["error"] === "string" ? { error: search["error"] } : {},
   head: () => ({
     meta: [
-      { title: "Sign in · Store Coach" },
+      { title: "Sign in · Store Coach by Manyavar" },
       {
         name: "description",
-        content: "Sign in to Store Coach with your Manyavar account to see your own dashboard.",
+        content: "Sign in to Store Coach: five actions on Monday, one card every morning, proof a week later.",
       },
-      { property: "og:title", content: "Sign in · Store Coach" },
-      { property: "og:description", content: "Every stakeholder signs in and sees only their own Store Coach dashboard." },
+      { property: "og:title", content: "Sign in · Store Coach by Manyavar" },
+      { property: "og:description", content: "Five actions on Monday. One card every morning. Proof a week later." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -54,7 +55,7 @@ function LoginPage() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(
-    search.error === "no-profile" ? "This account has no Store Coach role. Ask HQ to seed it." : null,
+    search.error === "no-profile" ? "This account has no Store Coach role yet. Ask HQ to set up the demo accounts." : null,
   );
 
   async function signIn(e: string, p: string) {
@@ -65,8 +66,8 @@ function LoginPage() {
       setBusy(null);
       setError(
         authError?.message === "Invalid login credentials"
-          ? "That email and password don't match. Demo accounts appear after HQ presses Seed demo users."
-          : (authError?.message ?? "Sign-in failed."),
+          ? "That email and password don't match."
+          : (authError?.message ?? "Sign-in failed. Please try again."),
       );
       return;
     }
@@ -74,7 +75,7 @@ function LoginPage() {
     if (!profile) {
       await supabase.auth.signOut();
       setBusy(null);
-      setError("This account has no Store Coach role. Ask HQ to seed it.");
+      setError("This account has no Store Coach role yet. Ask HQ to set up the demo accounts.");
       return;
     }
     navigate({ to: homeFor(profile.role), replace: true });
@@ -86,47 +87,28 @@ function LoginPage() {
   }
 
   return (
-    <div className="grid min-h-screen lg:grid-cols-[1.05fr_1fr]">
-      <section className="header-band relative flex flex-col justify-between gap-10 px-6 py-8 sm:px-10 lg:py-12">
-        <div className="flex items-center gap-3">
-          <BrandMark className="size-11" />
-          <div>
-            <p className="text-2xl font-extrabold leading-none tracking-tight">Store Coach</p>
-            <p className="mt-1 text-sm text-on-maroon-muted">Manyavar · 20 stores · 6 area managers</p>
+    <div className="flex min-h-screen items-center bg-background px-5 py-12 sm:px-10">
+      <div className="mx-auto grid w-full max-w-6xl items-center gap-12 lg:grid-cols-[1fr_minmax(0,30rem)] lg:gap-20">
+        <section className="max-w-xl">
+          <div className="flex items-center gap-3">
+            <BrandMark className="size-11 rounded-2xl" />
+            <span className="text-lg font-semibold text-muted-foreground">Store Coach by Manyavar</span>
           </div>
-        </div>
-        <div className="max-w-xl">
-          <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-marigold">Runs by itself every morning</p>
-          <h1 className="mt-3 text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl">
-            Five ranked actions a week. One card a day.
+          <h1 className="headline mt-6 text-5xl text-foreground sm:text-7xl">
+            Store Coach <span className="block text-muted-foreground">by Manyavar</span>
           </h1>
-          <p className="mt-4 text-base leading-relaxed text-on-maroon-muted sm:text-lg">
-            Area managers see which stores need them and how many rupees are at stake. Every salesperson gets one thing to
-            do better today, with a named colleague to learn from.
+          <p className="mt-5 text-xl leading-snug text-muted-foreground sm:text-2xl">
+            Five actions on Monday. One card every morning. Proof a week later.
           </p>
-        </div>
-        <dl className="grid max-w-xl grid-cols-3 gap-4 text-sm">
-          {[
-            ["≤ 5", "issues per manager a week"],
-            ["≤ 60", "words on every card"],
-            ["7 days", "to every follow-up"],
-          ].map(([v, l]) => (
-            <div key={l} className="rounded-2xl border border-on-maroon/15 bg-on-maroon/5 p-3">
-              <dt className="rupee-figure text-2xl text-marigold">{v}</dt>
-              <dd className="mt-1 text-xs leading-snug text-on-maroon-muted">{l}</dd>
-            </div>
-          ))}
-        </dl>
-      </section>
+        </section>
 
-      <section className="flex items-center justify-center bg-background px-5 py-10 sm:px-10">
-        <div className="w-full max-w-md">
-          <h2 className="text-2xl font-extrabold tracking-tight text-foreground">Sign in</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Use your Store Coach account. You'll land on your own dashboard.</p>
-
-          <form onSubmit={onSubmit} className="coach-card mt-6 flex flex-col gap-4 p-5">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="email">Email</Label>
+        <section className="rounded-[2rem] bg-card p-7 shadow-float sm:p-9">
+          <h2 className="text-3xl font-semibold text-foreground">Sign in</h2>
+          <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-5">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="email" className="text-[0.95rem] font-normal text-muted-foreground">
+                Email
+              </Label>
               <Input
                 id="email"
                 type="email"
@@ -134,11 +116,14 @@ function LoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@storecoach.demo"
+                placeholder={`am01${DEMO_DOMAIN}`}
+                className="h-12 rounded-2xl px-4 text-base shadow-none md:text-base"
               />
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="password">Password</Label>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="password" className="text-[0.95rem] font-normal text-muted-foreground">
+                Password
+              </Label>
               <Input
                 id="password"
                 type="password"
@@ -146,58 +131,55 @@ function LoginPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                className="h-12 rounded-2xl px-4 text-base shadow-none md:text-base"
               />
             </div>
-            {error && <p className="rounded-lg bg-worse-soft px-3 py-2 text-sm text-worse">{error}</p>}
-            <Button type="submit" disabled={busy !== null} className="h-11 text-base">
-              {busy === email && busy ? <Loader2 className="animate-spin" /> : <ArrowRight />}
-              Sign in
+            {error && (
+              <p role="alert" className="rounded-2xl bg-bad-soft px-4 py-3 text-sm text-bad">
+                {error}
+              </p>
+            )}
+            <Button type="submit" size="lg" disabled={busy !== null} className="h-12 rounded-2xl text-lg">
+              {busy !== null && busy === email ? <Loader2 className="animate-spin" /> : null}
+              Continue
             </Button>
           </form>
 
-          <div className="mt-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-foreground">Demo accounts</h3>
-              <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                <KeyRound className="size-3.5" /> Password <code className="font-semibold text-foreground">{DEMO_PASSWORD}</code>
-              </span>
-            </div>
-            <ul className="mt-2 flex flex-col gap-1.5">
-              {DEMO_ACCOUNTS.map((a) => (
-                <li key={a.email}>
-                  <button
-                    type="button"
-                    disabled={busy !== null}
-                    onClick={() => {
-                      setEmail(a.email);
-                      setPassword(DEMO_PASSWORD);
-                      void signIn(a.email, DEMO_PASSWORD);
-                    }}
-                    className="group flex w-full items-center gap-3 rounded-xl border border-border bg-card px-3 py-2 text-left transition-colors hover:border-marigold hover:bg-marigold-soft disabled:opacity-60"
-                  >
-                    <span className="w-24 shrink-0 text-xs font-bold uppercase tracking-wide text-maroon">
-                      {ROLE_LABEL[a.role]}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold text-foreground">{a.email}</span>
-                      <span className="block text-xs text-muted-foreground">{a.scope}</span>
-                    </span>
-                    {busy === a.email ? (
-                      <Loader2 className="size-4 animate-spin text-maroon" />
-                    ) : (
-                      <ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-maroon" />
-                    )}
-                  </button>
-                </li>
-              ))}
+          <div className="mt-7 border-t border-border pt-5">
+            <p className="text-[0.95rem] font-semibold text-muted-foreground">Demo accounts · password {DEMO_PASSWORD}</p>
+            <ul className="mt-3 grid grid-cols-2 gap-2">
+              {DEMO_ACCOUNTS.map((a) => {
+                const full = `${a.user}${DEMO_DOMAIN}`;
+                return (
+                  <li key={a.user}>
+                    <button
+                      type="button"
+                      disabled={busy !== null}
+                      onClick={() => {
+                        setEmail(full);
+                        setPassword(DEMO_PASSWORD);
+                        void signIn(full, DEMO_PASSWORD);
+                      }}
+                      aria-label={`Sign in as ${a.label} (${full})`}
+                      className={cn(
+                        "flex h-full w-full items-center justify-between gap-2 rounded-2xl bg-secondary px-4 py-2.5 text-left transition-colors hover:bg-accent disabled:opacity-60",
+                        busy === full && "ring-2 ring-ring",
+                      )}
+                    >
+                      <span className="min-w-0">
+                        <span className="block text-foreground">{a.label}</span>
+                        <span className="block truncate text-muted-foreground">{a.user}@</span>
+                      </span>
+                      {busy === full && <Loader2 className="size-4 shrink-0 animate-spin text-primary" />}
+                    </button>
+                  </li>
+                );
+              })}
+              <li className="flex items-start rounded-2xl bg-secondary px-4 py-2.5 text-muted-foreground">{DEMO_DOMAIN}</li>
             </ul>
-            <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-              Synthetic data only. Every store lead signs in as lead.&lt;store id&gt;@storecoach.demo (e.g. lead.blr03) and every
-              salesperson as their id (e.g. sp1019).
-            </p>
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
     </div>
   );
 }

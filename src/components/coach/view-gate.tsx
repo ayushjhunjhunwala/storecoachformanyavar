@@ -21,15 +21,16 @@ export function useCoachView(): UseQueryResult<CoachView> {
 
 export function ViewSkeleton() {
   return (
-    <div className="flex flex-col gap-4" aria-busy="true" aria-label="Loading dashboard">
-      <Skeleton className="h-10 w-72 rounded-xl" />
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className="flex flex-col gap-5" aria-busy="true" aria-label="Loading dashboard">
+      <Skeleton className="h-5 w-64 rounded-full bg-border" />
+      <Skeleton className="h-12 w-full max-w-xl rounded-2xl bg-border" />
+      <div className="mt-2 grid grid-cols-2 gap-4 lg:grid-cols-4">
         {[0, 1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-28 rounded-2xl" />
+          <Skeleton key={i} className="h-32 rounded-3xl bg-card" />
         ))}
       </div>
-      <Skeleton className="h-64 rounded-2xl" />
-      <Skeleton className="h-64 rounded-2xl" />
+      <Skeleton className="h-72 rounded-3xl bg-card" />
+      <Skeleton className="h-72 rounded-3xl bg-card" />
     </div>
   );
 }
@@ -37,17 +38,17 @@ export function ViewSkeleton() {
 function ViewError({ error, onRetry }: { error: unknown; onRetry: () => void }) {
   const message = error instanceof Error ? error.message : "Something went wrong loading your dashboard.";
   return (
-    <div className="coach-card mx-auto flex max-w-lg flex-col items-center gap-3 p-8 text-center">
-      <span className="grid size-12 place-items-center rounded-full bg-worse-soft text-worse">
+    <div className="surface mx-auto flex max-w-lg flex-col items-center gap-3 p-10 text-center">
+      <span className="grid size-12 place-items-center rounded-full bg-bad-soft text-bad">
         <AlertTriangle className="size-6" />
       </span>
-      <h2 className="text-lg font-bold text-foreground">Your dashboard didn't load</h2>
-      <p className="text-sm text-muted-foreground">{message}</p>
-      <div className="flex gap-2">
-        <Button onClick={onRetry} variant="default" size="sm">
+      <h2 className="text-xl font-semibold text-foreground">Your dashboard didn't load</h2>
+      <p className="text-[0.95rem] text-muted-foreground">{message}</p>
+      <div className="mt-2 flex items-center gap-4">
+        <Button onClick={onRetry}>
           <RefreshCw /> Try again
         </Button>
-        <SignOutButton variant="outline" />
+        <SignOutButton />
       </div>
     </div>
   );
@@ -79,14 +80,4 @@ export function SalespersonGate({
   const view = query.data;
   if (!view || view.kind !== "salesperson") return <ViewSkeleton />;
   return <>{children(view)}</>;
-}
-
-export function PageIntro({ eyebrow, title, meta }: { eyebrow: string; title: ReactNode; meta?: ReactNode }) {
-  return (
-    <div className="mb-5">
-      <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-maroon">{eyebrow}</p>
-      <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">{title}</h1>
-      {meta && <p className="mt-1 text-sm text-muted-foreground">{meta}</p>}
-    </div>
-  );
 }

@@ -8,6 +8,27 @@
       "when": 1795248275733,
       "tag": "0000_store_coach_profiles_chat_and_hq",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1795253603261,
+      "tag": "0001_move_roles_to_user_roles",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795253678282,
+      "tag": "0002_lock_down_client_writes",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1795254132743,
+      "tag": "0003_create_action_status",
+      "breakpoints": true
     }
   ]
 }

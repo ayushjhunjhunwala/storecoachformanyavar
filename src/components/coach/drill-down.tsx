@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { LayoutList, Store } from "lucide-react";
 import type { ManagerView } from "@/lib/coach/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
@@ -26,13 +25,13 @@ export function DrillDown({
   onStoreChange: (id: string) => void;
 }) {
   return (
-    <section className="flex flex-col gap-4" aria-label="Drill down">
-      <div className="coach-card flex flex-wrap items-center gap-3 p-3">
-        <div className="flex rounded-xl bg-secondary p-1" role="tablist" aria-label="Drill down by">
+    <section className="flex flex-col gap-8" aria-label="Digests and stores">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex rounded-full bg-secondary p-1" role="tablist" aria-label="Show">
           {(
             [
-              { key: "am", label: "Area manager digest", icon: LayoutList },
-              { key: "store", label: "Store view", icon: Store },
+              { key: "am", label: "Area manager digest" },
+              { key: "store", label: "Store" },
             ] as const
           ).map((t) => (
             <button
@@ -41,30 +40,30 @@ export function DrillDown({
               aria-selected={mode === t.key}
               onClick={() => onModeChange(t.key)}
               className={cn(
-                "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors",
-                mode === t.key ? "bg-card text-maroon shadow-sm" : "text-muted-foreground hover:text-foreground",
+                "rounded-full px-4 py-2 text-[0.95rem] transition-colors",
+                mode === t.key ? "bg-card font-semibold text-foreground shadow-card" : "text-muted-foreground hover:text-foreground",
               )}
             >
-              <t.icon className="size-4" /> {t.label}
+              {t.label}
             </button>
           ))}
         </div>
         {mode === "am" ? (
           <Select value={amId} onValueChange={onAmChange}>
-            <SelectTrigger className="w-full sm:w-72" aria-label="Choose area manager">
+            <SelectTrigger className="h-11 w-full rounded-full bg-card px-5 text-base sm:w-80" aria-label="Choose area manager">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {view.area_managers.map((a) => (
                 <SelectItem key={a.area_manager_id} value={a.area_manager_id}>
-                  {a.area_manager_id} · {a.name} · {a.city}
+                  {a.name} · {a.city}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         ) : (
           <Select value={storeId} onValueChange={onStoreChange}>
-            <SelectTrigger className="w-full sm:w-72" aria-label="Choose store">
+            <SelectTrigger className="h-11 w-full rounded-full bg-card px-5 text-base sm:w-80" aria-label="Choose store">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -77,7 +76,7 @@ export function DrillDown({
           </Select>
         )}
       </div>
-      {mode === "am" ? <AmDigest view={view} amId={amId} /> : <StoreView view={view} storeId={storeId} />}
+      {mode === "am" ? <AmDigest view={view} amId={amId} showManager /> : <StoreView view={view} storeId={storeId} />}
     </section>
   );
 }
@@ -89,9 +88,7 @@ export function useDrillState(view: ManagerView | undefined, defaults: { am?: st
   const [storeId, setStoreId] = useState(defaults.store ?? "");
   useEffect(() => {
     if (!view) return;
-    if (!view.area_managers.some((a) => a.area_manager_id === amId)) {
-      setAmId(view.area_managers[0]?.area_manager_id ?? "");
-    }
+    if (!view.area_managers.some((a) => a.area_manager_id === amId)) setAmId(view.area_managers[0]?.area_manager_id ?? "");
     if (!view.stores[storeId]) setStoreId(view.store_order[0] ?? "");
   }, [view, amId, storeId]);
   return { mode, setMode, amId, setAmId, storeId, setStoreId };

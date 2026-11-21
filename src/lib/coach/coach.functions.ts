@@ -1,6 +1,6 @@
 // Server functions for Store Coach. Every handler authenticates the caller and
-// reads their role from their own profile row (RLS: own row only) before
-// touching data.json, which lives in a private bucket.
+// reads their role from their own user_roles row (RLS: own row only, no client
+// writes) before touching data.json, which lives in a private bucket.
 import { createServerFn } from "@tanstack/react-start";
 import { setResponseStatus } from "@tanstack/react-start/server";
 import { z } from "zod";
@@ -8,7 +8,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { CoachView, ViewProfile } from "./types";
-import { isCoachRole } from "./logic";
+import { fetchViewProfile } from "./profile";
 import { loadCoachIndex } from "./data.server";
 import { buildView, ScopeError } from "./slice.server";
 import { buildDemoAccounts, DEMO_PASSWORD } from "./accounts.server";
@@ -25,17 +25,15 @@ function forbid(message = "Forbidden"): never {
 }
 
 async function readProfile(supabase: SupabaseClient<Database>, userId: string): Promise<ViewProfile> {
-  const { data: row, error } = await supabase
-    .from("profiles")
-    .select("email, display_name, role, scope_id")
-    .eq("id", userId)
-    .maybeSingle();
-  if (error) {
-    console.error("[coach] profile read failed", error.message);
+  let profile: ViewProfile | null;
+  try {
+    profile = await fetchViewProfile(supabase, userId);
+  } catch (error) {
+    console.error("[coach] profile read failed", error instanceof Error ? error.message : error);
     forbid("Could not read your Store Coach profile");
   }
-  if (!row || !isCoachRole(row.role)) forbid("This account has no Store Coach role");
-  return { email: row.email, display_name: row.display_name, role: row.role, scope_id: row.scope_id };
+  if (!profile) forbid("This account has no Store Coach role");
+  return profile;
 }
 
 // ---------- get-view ----------
@@ -59,6 +57,8 @@ export interface SeedResult {
   offset: number;
   processed: number;
   created: number;
+  /** Login existed but its profile or role row was missing and has been attached. */
+  repaired: number;
   existing: number;
   failed: { email: string; error: string }[];
   next_offset: number | null;
@@ -78,32 +78,35 @@ export const seedUsers = createServerFn({ method: "POST" })
     const batch = accounts.slice(data.offset, data.offset + SEED_BATCH);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
+    // An account is complete once it has both a profile and a role row.
     const { data: existingRows, error: existingError } = await supabaseAdmin
       .from("profiles")
-      .select("email")
+      .select("id, email")
       .in(
         "email",
         batch.map((a) => a.email),
       );
     if (existingError) throw new Error(`Could not check existing accounts: ${existingError.message}`);
-    const existing = new Set((existingRows ?? []).map((r) => r.email));
+    const ids = (existingRows ?? []).map((r) => r.id);
+    const { data: existingRoleRows, error: roleError } = ids.length
+      ? await supabaseAdmin.from("user_roles").select("user_id").in("user_id", ids)
+      : { data: [], error: null };
+    if (roleError) throw new Error(`Could not check existing roles: ${roleError.message}`);
+    const withRole = new Set((existingRoleRows ?? []).map((r) => r.user_id));
+    const existing = new Set((existingRows ?? []).filter((r) => withRole.has(r.id)).map((r) => r.email));
 
     const result: SeedResult = {
       total: accounts.length,
       offset: data.offset,
       processed: batch.length,
       created: 0,
+      repaired: 0,
       existing: 0,
       failed: [],
       next_offset: data.offset + SEED_BATCH < accounts.length ? data.offset + SEED_BATCH : null,
     };
-    const profileRows: {
-      id: string;
-      email: string;
-      display_name: string;
-      role: ViewProfile["role"];
-      scope_id: string;
-    }[] = [];
+    const profileRows: { id: string; email: string; display_name: string }[] = [];
+    const roleRows: { user_id: string; role: ViewProfile["role"]; scope_id: string }[] = [];
 
     for (const account of batch) {
       if (existing.has(account.email)) {
@@ -127,25 +130,22 @@ export const seedUsers = createServerFn({ method: "POST" })
         });
         if (typeof foundId === "string" && foundId) {
           userId = foundId;
-          result.existing += 1;
+          result.repaired += 1;
         } else {
           result.failed.push({ email: account.email, error: error?.message ?? "Unknown error" });
         }
       }
       if (userId) {
-        profileRows.push({
-          id: userId,
-          email: account.email,
-          display_name: account.display_name,
-          role: account.role,
-          scope_id: account.scope_id,
-        });
+        profileRows.push({ id: userId, email: account.email, display_name: account.display_name });
+        roleRows.push({ user_id: userId, role: account.role, scope_id: account.scope_id });
       }
     }
 
     if (profileRows.length) {
       const { error } = await supabaseAdmin.from("profiles").upsert(profileRows, { onConflict: "id" });
       if (error) throw new Error(`Could not save profiles: ${error.message}`);
+      const { error: rolesError } = await supabaseAdmin.from("user_roles").upsert(roleRows, { onConflict: "user_id" });
+      if (rolesError) throw new Error(`Could not save roles: ${rolesError.message}`);
     }
     return result;
   });
@@ -268,4 +268,49 @@ export const askCoach = createServerFn({ method: "POST" })
       created_at: saved.created_at,
       remaining: Math.max(0, ASK_LIMIT_PER_HOUR - used - 1),
     };
+  });
+
+// ---------- card statuses (managers see whether their salespeople ticked today's card) ----------
+export const getCardStatuses = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ date: dateSchema }).parse(input))
+  .handler(async ({ data, context }): Promise<Record<string, string>> => {
+    const profile = await readProfile(context.supabase, context.userId);
+    if (profile.role === "salesperson") forbid("Card statuses are for managers only");
+    const index = await loadCoachIndex();
+    let view: CoachView;
+    try {
+      view = buildView(index, profile, data.date);
+    } catch (error) {
+      if (error instanceof ScopeError) forbid(error.message);
+      throw error;
+    }
+    if (view.kind !== "manager") forbid("Card statuses are for managers only");
+
+    // Only salespeople inside the caller's scoped view are looked up.
+    const spIds = [...new Set(Object.values(view.stores).flatMap((b) => b.cards.map((c) => c.sp)))];
+    if (!spIds.length) return {};
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: roleRows, error: roleError } = await supabaseAdmin
+      .from("user_roles")
+      .select("user_id, scope_id")
+      .eq("role", "salesperson")
+      .in("scope_id", spIds);
+    if (roleError) throw new Error("Could not read card statuses");
+    const userToSp = new Map((roleRows ?? []).filter((r) => r.scope_id).map((r) => [r.user_id, r.scope_id as string]));
+    if (!userToSp.size) return {};
+    const keys = spIds.map((sp) => `card:${data.date}:${sp}`);
+    const { data: rows, error } = await supabaseAdmin
+      .from("action_status")
+      .select("user_id, item_key, status")
+      .in("user_id", [...userToSp.keys()])
+      .in("item_key", keys);
+    if (error) throw new Error("Could not read card statuses");
+    const out: Record<string, string> = {};
+    for (const row of rows ?? []) {
+      const sp = userToSp.get(row.user_id);
+      // A tick counts only when the salesperson set it on their own card.
+      if (sp && row.item_key === `card:${data.date}:${sp}`) out[sp] = row.status;
+    }
+    return out;
   });

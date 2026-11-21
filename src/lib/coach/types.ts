@@ -330,6 +330,7 @@ export interface MyView {
   callbacks: { total: number; items: CallbackItem[] };
   stats: SpStats | null;
   stats_as_of: string | null;
+  upcoming: UpcomingDay[];
 }
 
 export type CoachView = ManagerView | MyView;

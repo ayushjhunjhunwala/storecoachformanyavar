@@ -1,158 +1,157 @@
-import { CheckCheck, Clock, GraduationCap, PhoneCall } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { Check, ChevronRight, RotateCcw } from "lucide-react";
 import type { MyView } from "@/lib/coach/types";
-import { FOCUS_LABEL, formatDateWithYear, formatPct, formatRupees, formatShortDate } from "@/lib/coach/format";
+import {
+  FOCUS_LABEL,
+  cardBody,
+  firstName,
+  formatPct,
+  formatShortDate,
+  formatWeekdayDayMonth,
+  initials,
+} from "@/lib/coach/format";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { CoachChart, KPI_LABEL } from "./coach-chart";
-import { EmptyNote, KeyValue, Panel } from "./primitives";
-import { useLocalStatus } from "./use-local-status";
+import { CoachChart, KPI_LABEL, trendCaption } from "./coach-chart";
+import { Card, KeyValue } from "./primitives";
+import { statusKey, useActionStatus } from "./use-action-status";
 
 type CardStatus = "done" | "not_today";
 
-export function SalespersonView({ view }: { view: MyView }) {
-  const [status, setStatus] = useLocalStatus<CardStatus>(`card:${view.salesperson_id}:${view.date}`);
-  const s = view.stats;
+const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
+function TodayCard({ view }: { view: MyView }) {
+  const [status, setStatus] = useActionStatus<CardStatus>(statusKey.card(view.date, view.salesperson_id));
+  if (!view.card) {
+    return (
+      <Card>
+        <p className="font-semibold text-primary">Today's one thing</p>
+        <p className="mt-3 text-xl leading-snug text-muted-foreground">No card for you today. Keep doing what works.</p>
+      </Card>
+    );
+  }
   return (
-    <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-      <div className="mx-auto w-full max-w-[360px]">
-        <div className="overflow-hidden rounded-[2.2rem] border-[10px] border-foreground/90 bg-foreground/90 shadow-lift">
-          <div className="flex items-center gap-3 bg-wa-header px-4 pb-3 pt-4 text-on-maroon">
-            <span className="grid size-9 place-items-center rounded-full bg-marigold text-sm font-extrabold text-accent-foreground">
-              SC
-            </span>
-            <div className="leading-tight">
-              <p className="font-bold">Store Coach</p>
-              <p className="text-xs opacity-80">{view.store_id} · daily card</p>
-            </div>
-          </div>
-          <div className="wa-wall flex min-h-[14rem] sm:min-h-[22rem] flex-col gap-3 px-3 py-4">
-            <span className="mx-auto rounded-md bg-card/90 px-2.5 py-0.5 text-[0.7rem] font-semibold text-muted-foreground shadow-sm">
-              {formatShortDate(view.date)}
-            </span>
-            {view.card ? (
-              <div className="relative max-w-[92%] rounded-xl rounded-tl-none bg-card px-3 py-2 text-[0.95rem] leading-relaxed text-wa-ink shadow-sm">
-                {view.card.text}
-                <span className="mt-1 flex items-center justify-end gap-1 text-[0.68rem] text-muted-foreground">
-                  {view.card.words} words · 7:00 am <CheckCheck className="size-3.5 text-teal" />
-                </span>
-              </div>
-            ) : (
-              <div className="max-w-[92%] rounded-xl rounded-tl-none bg-card px-3 py-2 text-sm text-muted-foreground shadow-sm">
-                No card for you today. Keep doing what works.
-              </div>
-            )}
-            {status && (
-              <div className="ml-auto max-w-[80%] rounded-xl rounded-tr-none bg-wa-bubble px-3 py-2 text-sm text-wa-ink shadow-sm">
-                {status === "done" ? "Done ✅" : "Not today"}
-                <span className="mt-0.5 block text-right text-[0.68rem] text-muted-foreground">you</span>
-              </div>
-            )}
-          </div>
-          <div className="flex gap-2 bg-wa-wall px-3 pb-4">
-            <Button
-              className="flex-1"
-              variant={status === "done" ? "default" : "outline"}
-              onClick={() => setStatus(status === "done" ? null : "done")}
-              disabled={!view.card}
+    <section className="surface p-6 sm:p-8" aria-label="Today's one thing">
+      <p className="font-semibold text-primary">Today's one thing</p>
+      <p className="mt-4 text-2xl font-semibold leading-snug text-foreground sm:text-[1.75rem]">{cardBody(view.card.text, view.name)}</p>
+      <div className="mt-7">
+        {status ? (
+          <div className="flex items-center gap-3">
+            <span
+              role="status"
+              className={
+                status === "done"
+                  ? "inline-flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl bg-good-soft text-lg font-semibold text-good"
+                  : "inline-flex h-14 flex-1 items-center justify-center rounded-2xl bg-secondary text-lg font-semibold text-muted-foreground"
+              }
             >
+              {status === "done" ? (
+                <>
+                  <Check className="size-5" /> Done
+                </>
+              ) : (
+                "Not today"
+              )}
+            </span>
+            <Button variant="quiet" size="lg" onClick={() => setStatus(null)}>
+              <RotateCcw /> Undo
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            <Button size="xl" className="h-14 rounded-2xl" onClick={() => setStatus("done")}>
               Done
             </Button>
-            <Button
-              className="flex-1"
-              variant={status === "not_today" ? "default" : "outline"}
-              onClick={() => setStatus(status === "not_today" ? null : "not_today")}
-              disabled={!view.card}
-            >
+            <Button size="xl" variant="secondary" className="h-14 rounded-2xl" onClick={() => setStatus("not_today")}>
               Not today
             </Button>
           </div>
-        </div>
+        )}
+      </div>
+      <p className="mt-4 text-sm text-muted-foreground">
+        {view.card.words} words · your store lead sees whether you tapped Done
+      </p>
+    </section>
+  );
+}
+
+export function SalespersonView({ view }: { view: MyView }) {
+  const s = view.stats;
+  const caption = trendCaption(view.trend, view.kpi_key);
+  const firstCallback = view.callbacks.items[0];
+  const callbackHint = view.callbacks.total
+    ? `${view.callbacks.total} to call`
+    : "None handed to you yet";
+
+  return (
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-5">
+      <div className="mb-2">
+        <p className="text-lg text-muted-foreground">
+          {formatWeekdayDayMonth(view.date)} · {view.store_id}
+        </p>
+        <h1 className="headline mt-1 text-5xl text-foreground sm:text-6xl">Hi, {firstName(view.name)}</h1>
       </div>
 
-      <div className="flex min-w-0 flex-col gap-5">
-        <Panel title="My coach" subtitle={`${KPI_LABEL[view.kpi_key]}: you vs the ${view.store_id} median`}>
-          <CoachChart mine={view.trend} store={view.store_trend} kpi={view.kpi_key} />
-        </Panel>
+      <TodayCard view={view} />
 
-        <div className="grid items-start gap-5 md:grid-cols-2">
-          <Panel
-            title={
-              <span className="flex items-center gap-2">
-                <GraduationCap className="size-4 text-teal" /> My mentor
-              </span>
-            }
-          >
-            {view.mentor ? (
-              <p className="text-sm leading-relaxed text-foreground">
-                Learn from <b>{view.mentor.name}</b> on{" "}
-                <span className="font-semibold text-maroon">{FOCUS_LABEL[view.mentor.focus] ?? view.mentor.focus}</span>.
-                Watch one customer with them on the floor today.
-              </p>
-            ) : (
-              <p className="text-sm text-muted-foreground">No mentor pairing for you today.</p>
-            )}
-            {view.mentees.length > 0 && (
-              <div className="mt-3 rounded-xl bg-teal-soft px-3 py-2 text-sm">
-                <p className="font-semibold text-teal">You are mentoring</p>
-                <ul className="mt-1 text-foreground">
-                  {view.mentees.map((m) => (
-                    <li key={m.name}>
-                      {m.name} · {FOCUS_LABEL[m.focus] ?? m.focus}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </Panel>
+      <Card title="My coach" aside={KPI_LABEL[view.kpi_key]}>
+        <CoachChart mine={view.trend} store={view.store_trend} kpi={view.kpi_key} />
+        <p className="mt-4 text-[1.05rem] leading-relaxed text-foreground/80">
+          {caption ? `${caption} ` : ""}Only you see your own numbers.
+        </p>
+      </Card>
 
-          <Panel title="My last 90 days" subtitle={s ? `As of ${formatShortDate(view.stats_as_of)}` : undefined}>
-            {s ? (
-              <div className="divide-y divide-border">
-                <KeyValue label="Bills, 90 days" value={s.bills90} />
-                <KeyValue label="Bills, 28 days" value={s.bills28} />
-                <KeyValue label="Items per bill" value={s.ipb == null ? "—" : s.ipb.toFixed(2)} />
-                <KeyValue label="Kurta sets with a jacket" value={`${formatPct(s.kur_rate)} of ${s.kur}`} />
-                <KeyValue label="Discount" value={formatPct(s.disc)} />
-                <KeyValue label="Weekend days off" value={formatPct(s.wkend_off, 0)} />
-                <KeyValue label="Repeat customers" value={formatPct(s.repeat)} />
-                <KeyValue label="Last bill" value={formatShortDate(s.last_bill)} />
-              </div>
-            ) : (
-              <EmptyNote>Your stats appear after your first full week.</EmptyNote>
-            )}
-          </Panel>
-        </div>
-
-        <Panel
-          title={
-            <span className="flex items-center gap-2">
-              <PhoneCall className="size-4 text-maroon" /> My callbacks
-            </span>
-          }
-          subtitle={`${view.callbacks.total} past customers handed to you`}
-        >
-          {view.callbacks.items.length ? (
-            <ul className="flex flex-col divide-y divide-border">
-              {view.callbacks.items.map((c) => (
-                <li key={c.cust + c.date} className="grid grid-cols-[1fr_auto] gap-x-3 py-2 text-sm">
-                  <span className="font-semibold text-foreground">
-                    {c.cust} <span className="font-normal text-muted-foreground">· {formatDateWithYear(c.date)}</span>
-                  </span>
-                  <span className="tabular font-bold text-maroon">{formatRupees(c.value)}</span>
-                  <span className={cn("col-span-2 text-xs text-muted-foreground")}>
-                    {c.bought} · first served by {c.served_by}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Clock className="size-4" /> No customers handed to you yet.
+      {view.mentor ? (
+        <section className="surface flex items-center gap-5 p-6 sm:p-7" aria-label="Your mentor">
+          <span className="grid size-16 shrink-0 place-items-center rounded-full bg-info-soft text-xl font-semibold text-info">
+            {initials(view.mentor.name)}
+          </span>
+          <div>
+            <p className="text-xl font-semibold text-foreground">Your mentor: {view.mentor.name}</p>
+            <p className="text-[1.05rem] text-muted-foreground">
+              Best at {(FOCUS_LABEL[view.mentor.focus] ?? view.mentor.focus).toLowerCase()} · watch one customer with them today
             </p>
-          )}
-        </Panel>
-      </div>
+          </div>
+        </section>
+      ) : null}
+      {view.mentees.length > 0 && (
+        <Card>
+          <p className="text-xl font-semibold text-foreground">You're a mentor today</p>
+          <p className="mt-1 text-[1.05rem] text-muted-foreground">
+            {view.mentees.map((m) => `${m.name} learns ${(FOCUS_LABEL[m.focus] ?? m.focus).toLowerCase()} from you`).join(" · ")}
+          </p>
+        </Card>
+      )}
+
+      <Link
+        to="/me/callbacks"
+        className="surface flex items-center justify-between gap-4 p-6 transition-shadow hover:shadow-float focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring sm:p-7"
+      >
+        <span className="flex flex-wrap items-baseline gap-x-3">
+          <span className="text-xl font-semibold text-foreground">My callbacks</span>
+          <span className="text-[1.05rem] text-muted-foreground">
+            {callbackHint}
+            {firstCallback ? ` · from ${MONTH_SHORT[Number(firstCallback.date.slice(5, 7)) - 1]} ${firstCallback.date.slice(0, 4)}` : ""}
+          </span>
+        </span>
+        <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
+      </Link>
+
+      <Card title="My last 90 days" aside={s ? `As of ${formatShortDate(view.stats_as_of)}` : undefined}>
+        {s ? (
+          <div>
+            <KeyValue label="Bills, 90 days" value={s.bills90} />
+            <KeyValue label="Bills, 28 days" value={s.bills28} />
+            <KeyValue label="Items per bill" value={s.ipb == null ? "—" : s.ipb.toFixed(2)} />
+            <KeyValue label="Kurta sets with a jacket" value={`${formatPct(s.kur_rate)} of ${s.kur}`} />
+            <KeyValue label="Discount" value={formatPct(s.disc)} />
+            <KeyValue label="Weekend days off" value={formatPct(s.wkend_off, 0)} />
+            <KeyValue label="Repeat customers" value={formatPct(s.repeat)} />
+            <KeyValue label="Last bill" value={formatShortDate(s.last_bill)} />
+          </div>
+        ) : (
+          <p className="text-[1.05rem] text-muted-foreground">Your 90-day numbers appear after the first Saturday run.</p>
+        )}
+      </Card>
     </div>
   );
 }

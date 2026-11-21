@@ -9,12 +9,12 @@ export const Route = createFileRoute("/")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "Store Coach · Manyavar daily coaching" },
+      { title: "Store Coach by Manyavar · daily store coaching" },
       {
         name: "description",
         content: "Sign in to Store Coach: weekly ranked actions for Manyavar area managers and a daily card for every salesperson.",
       },
-      { property: "og:title", content: "Store Coach · Manyavar daily coaching" },
+      { property: "og:title", content: "Store Coach by Manyavar · daily store coaching" },
       {
         property: "og:description",
         content: "Weekly ranked actions for Manyavar area managers and a daily card for every salesperson.",
@@ -35,10 +35,10 @@ export const Route = createFileRoute("/")({
 
 function Splash() {
   return (
-    <div className="header-band flex min-h-screen flex-col items-center justify-center gap-4">
-      <BrandMark className="size-14" />
-      <p className="text-2xl font-extrabold tracking-tight">Store Coach</p>
-      <p className="text-sm text-on-maroon-muted">Opening your dashboard…</p>
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background">
+      <BrandMark className="size-14 rounded-2xl" />
+      <p className="headline text-3xl text-foreground">Store Coach by Manyavar</p>
+      <p className="text-sm text-muted-foreground">Opening your dashboard…</p>
     </div>
   );
 }

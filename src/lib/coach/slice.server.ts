@@ -249,6 +249,8 @@ function buildMyView(index: CoachIndex, profile: ViewProfile, date: string): MyV
     callbacks: { total: own.length, items: own },
     stats: teamDay?.sp?.[id] ?? null,
     stats_as_of: teamDay?.date ?? null,
+    // The public festival / wedding calendar for the person's state (no colleague data).
+    upcoming: store ? (index.meta.upcoming[store.state] ?? []) : [],
   };
 }
 

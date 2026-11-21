@@ -1,91 +1,71 @@
 import type { TrendPoint } from "@/lib/coach/types";
 import { formatDayMonth } from "@/lib/coach/format";
 
-const LABEL: Record<"ipb" | "kur" | "disc", string> = {
+export type CoachKpi = "ipb" | "kur" | "disc";
+
+export const KPI_LABEL: Record<CoachKpi, string> = {
   ipb: "Items per bill",
   kur: "Kurta sets with a jacket",
-  disc: "Discount, share of MRP",
+  disc: "Discount",
 };
 
-function fmt(key: "ipb" | "kur" | "disc", v: number): string {
+export function formatKpi(key: CoachKpi, v: number): string {
   return key === "ipb" ? v.toFixed(2) : `${(v * 100).toFixed(1)}%`;
 }
 
-/** SVG line chart: own line solid maroon with dots, store median dotted marigold. */
-export function CoachChart({
-  mine,
-  store,
-  kpi,
-}: {
-  mine: TrendPoint[];
-  store: TrendPoint[];
-  kpi: "ipb" | "kur" | "disc";
-}) {
-  const W = 560;
-  const H = 220;
-  const pad = { l: 46, r: 14, t: 14, b: 30 };
+/**
+ * "Up from 1.27 on 19 Sep." Picks the person's own weakest week from their series and
+ * names it, when today's value is better. Discount: lower is better.
+ */
+export function trendCaption(mine: TrendPoint[], kpi: CoachKpi): string | null {
+  const last = mine[mine.length - 1];
+  if (!last || mine.length < 3) return null;
+  const lowerIsBetter = kpi === "disc";
+  const worst = mine.reduce((w, p) => ((lowerIsBetter ? p[kpi] > w[kpi] : p[kpi] < w[kpi]) ? p : w), mine[0]!);
+  if (worst.w === last.w || worst[kpi] === last[kpi]) return null;
+  return `${lowerIsBetter ? "Down" : "Up"} from ${formatKpi(kpi, worst[kpi])} on ${formatDayMonth(worst.w)}.`;
+}
+
+/** Clean line chart: your line in blue with an end dot, the store median dotted grey. */
+export function CoachChart({ mine, store, kpi }: { mine: TrendPoint[]; store: TrendPoint[]; kpi: CoachKpi }) {
+  const W = 600;
+  const H = 230;
+  const pad = { l: 10, r: 12, t: 16, b: 12 };
   const weeks = Array.from(new Set([...mine.map((p) => p.w), ...store.map((p) => p.w)])).sort();
   if (weeks.length < 2) {
-    return <p className="py-8 text-center text-sm text-muted-foreground">Not enough weeks yet to draw a trend.</p>;
+    return <p className="py-8 text-center text-[0.95rem] text-muted-foreground">Not enough weeks yet to draw a trend.</p>;
   }
   const values = [...mine, ...store].map((p) => p[kpi]);
   let min = Math.min(...values);
   let max = Math.max(...values);
   if (min === max) {
-    min = min - (kpi === "ipb" ? 0.1 : 0.01);
-    max = max + (kpi === "ipb" ? 0.1 : 0.01);
+    min -= kpi === "ipb" ? 0.1 : 0.01;
+    max += kpi === "ipb" ? 0.1 : 0.01;
   }
   const span = max - min;
-  min = Math.max(0, min - span * 0.12);
-  max = max + span * 0.12;
+  min -= span * 0.1;
+  max += span * 0.1;
   const x = (w: string) => pad.l + (weeks.indexOf(w) / (weeks.length - 1)) * (W - pad.l - pad.r);
   const y = (v: number) => pad.t + (1 - (v - min) / (max - min)) * (H - pad.t - pad.b);
-  const path = (pts: TrendPoint[]) =>
-    pts.map((p, i) => `${i === 0 ? "M" : "L"}${x(p.w).toFixed(1)},${y(p[kpi]).toFixed(1)}`).join(" ");
-  const ticks = [min, (min + max) / 2, max];
-  const labelEvery = Math.ceil(weeks.length / 6);
+  const path = (pts: TrendPoint[]) => pts.map((p, i) => `${i === 0 ? "M" : "L"}${x(p.w).toFixed(1)},${y(p[kpi]).toFixed(1)}`).join(" ");
   const last = mine[mine.length - 1];
+  const lastStore = store[store.length - 1];
 
   return (
     <figure>
-      <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label={`${LABEL[kpi]} trend`}>
-        {ticks.map((t) => (
-          <g key={t}>
-            <line x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} className="stroke-border" strokeWidth={1} />
-            <text x={pad.l - 8} y={y(t) + 4} textAnchor="end" className="fill-muted-foreground text-[11px]">
-              {fmt(kpi, t)}
-            </text>
-          </g>
-        ))}
-        {weeks.map((w, i) =>
-          i % labelEvery === 0 || i === weeks.length - 1 ? (
-            <text key={w} x={x(w)} y={H - 8} textAnchor="middle" className="fill-muted-foreground text-[11px]">
-              {formatDayMonth(w)}
-            </text>
-          ) : null,
-        )}
-        <path d={path(store)} fill="none" className="stroke-marigold" strokeWidth={2.5} strokeDasharray="2 6" strokeLinecap="round" />
-        <path d={path(mine)} fill="none" className="stroke-maroon" strokeWidth={2.5} strokeLinejoin="round" />
-        {mine.map((p) => (
-          <circle key={p.w} cx={x(p.w)} cy={y(p[kpi])} r={3.5} className="fill-card stroke-maroon" strokeWidth={2} />
-        ))}
-        {last && (
-          <text x={x(last.w)} y={y(last[kpi]) - 10} textAnchor="end" className="fill-maroon text-[12px] font-bold">
-            {fmt(kpi, last[kpi])}
-          </text>
-        )}
+      <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full overflow-visible" role="img" aria-label={`${KPI_LABEL[kpi]}: you vs the store median, by week`}>
+        <path d={path(store)} fill="none" className="stroke-chart-2" strokeWidth={3} strokeDasharray="3 9" strokeLinecap="round" />
+        <path d={path(mine)} fill="none" className="stroke-primary" strokeWidth={4} strokeLinejoin="round" strokeLinecap="round" />
+        {last && <circle cx={x(last.w)} cy={y(last[kpi])} r={8} className="fill-primary" />}
       </svg>
-      <figcaption className="mt-2 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block h-0.5 w-5 rounded bg-maroon" /> You
+      <figcaption className="mt-4 flex items-center justify-between gap-3 text-[0.95rem] text-muted-foreground">
+        <span>{formatDayMonth(weeks[0]!)}</span>
+        <span className="tabular text-center">
+          {last ? `You ${formatKpi(kpi, last[kpi])}` : ""}
+          {lastStore ? ` · store ${formatKpi(kpi, lastStore[kpi])}` : ""}
         </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block h-0 w-5 border-t-2 border-dotted border-marigold" /> Store median
-        </span>
-        <span>Rolling 4 weeks, every Saturday</span>
+        <span>{formatDayMonth(weeks[weeks.length - 1]!)}</span>
       </figcaption>
     </figure>
   );
 }
-
-export const KPI_LABEL = LABEL;

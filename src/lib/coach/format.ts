@@ -15,6 +15,17 @@ export function formatRupees(value: number | null | undefined): string {
   return `${sign}₹${Math.round(n)}`;
 }
 
+/** Like formatRupees, but thousands keep one decimal under ₹1L ("₹9.8K"). For KPI tiles. */
+export function formatRupeesPrecise(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(value)) return "—";
+  const n = Math.abs(value);
+  if (n >= 1e3 && n < 1e5) {
+    const sign = value < 0 ? "−" : "";
+    return `${sign}₹${(n / 1e3).toFixed(1)}K`;
+  }
+  return formatRupees(value);
+}
+
 /** Fraction (0.1016) to "10.2%". */
 export function formatPct(value: number | null | undefined, digits = 1): string {
   if (value == null || Number.isNaN(value)) return "—";
@@ -62,6 +73,32 @@ export function formatDateWithYear(date: string | null | undefined): string {
   return `${d} ${MONTHS[m - 1]} ${y}`;
 }
 
+/** "Sat, 31 Oct" */
+export function formatWeekdayDayMonth(date: string): string {
+  const { m, d, wd } = parseIso(date);
+  return `${DAYS[wd]}, ${d} ${MONTHS[m - 1]}`;
+}
+
+/** "Sat, 31 Oct 2026" — header date. */
+export function formatHeaderDate(date: string): string {
+  const { y, m, d, wd } = parseIso(date);
+  return `${DAYS[wd]}, ${d} ${MONTHS[m - 1]} ${y}`;
+}
+
+/** "20–26 Sep" or "27 Sep–3 Oct" for an inclusive range. */
+export function formatRange(start: string, end: string): string {
+  const a = parseIso(start);
+  const b = parseIso(end);
+  if (a.m === b.m) return `${a.d}–${b.d} ${MONTHS[b.m - 1]}`;
+  return `${a.d} ${MONTHS[a.m - 1]}–${b.d} ${MONTHS[b.m - 1]}`;
+}
+
+/** "Fri 20" */
+export function formatWeekdayDay(date: string): string {
+  const { d, wd } = parseIso(date);
+  return `${DAYS[wd]} ${d}`;
+}
+
 /** "10 Oct" */
 export function formatDayMonth(date: string): string {
   const { m, d } = parseIso(date);
@@ -69,7 +106,7 @@ export function formatDayMonth(date: string): string {
 }
 
 export const ROLE_LABEL: Record<string, string> = {
-  hq: "HQ admin",
+  hq: "HQ",
   zonal: "Zonal head",
   am: "Area manager",
   store_lead: "Store lead",
@@ -83,9 +120,66 @@ export const RESULT_LABEL: Record<string, string> = {
 };
 
 export const FOCUS_LABEL: Record<string, string> = {
-  kur: "Jacket with kurta set",
+  kur: "Kurta + jacket",
   ipb: "Items per bill",
-  disc: "Discount control",
+  disc: "Discount",
   shw: "Sherwani add-ons",
-  praise: "Keep it up",
+  praise: "Recognised",
 };
+
+/** "Faizan M." -> "Faizan" */
+export function firstName(name: string): string {
+  return name.split(" ")[0] ?? name;
+}
+
+/** "AS" initials for an avatar. */
+export function initials(name: string): string {
+  return name
+    .replace(/\./g, "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
+/**
+ * Cards are written "Faizan M., your bills…". On a screen that already names the
+ * person, show the same sentence without the leading name. Text is otherwise unchanged.
+ */
+export function cardBody(text: string, name: string): string {
+  const prefix = `${name}, `;
+  if (!text.startsWith(prefix)) return text;
+  const rest = text.slice(prefix.length);
+  return rest.charAt(0).toUpperCase() + rest.slice(1);
+}
+
+/** Consecutive ISO dates grouped into ranges: ["2026-11-20".."2026-11-30"] -> ["20–30 Nov"]. */
+export function dateRuns(dates: string[]): { start: string; end: string }[] {
+  const sorted = [...dates].sort();
+  const runs: { start: string; end: string }[] = [];
+  for (const d of sorted) {
+    const last = runs[runs.length - 1];
+    if (last) {
+      const next = new Date(`${last.end}T00:00:00Z`);
+      next.setUTCDate(next.getUTCDate() + 1);
+      if (next.toISOString().slice(0, 10) === d) {
+        last.end = d;
+        continue;
+      }
+    }
+    runs.push({ start: d, end: d });
+  }
+  return runs;
+}
+
+/** "20–30 Nov, plus Diwali on 8 Nov" from the calendar ahead. */
+export function describeUpcoming(days: { date: string; festival: string | null; wedding: boolean }[]): string | null {
+  const weddings = dateRuns(days.filter((d) => d.wedding).map((d) => d.date)).map((r) =>
+    r.start === r.end ? formatDayMonth(r.start) : formatRange(r.start, r.end),
+  );
+  const festivals = days.filter((d) => d.festival).map((d) => `${d.festival} on ${formatDayMonth(d.date)}`);
+  if (!weddings.length && !festivals.length) return null;
+  if (!weddings.length) return festivals.join(" and ");
+  return `${weddings.join(", ")}${festivals.length ? `, plus ${festivals.join(" and ")}` : ""}`;
+}

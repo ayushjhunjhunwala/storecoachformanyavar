@@ -9,22 +9,23 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Store Coach design system — Manyavar festive retail.
- * Maroon header band, marigold accent, teal for "More bills", ivory paper,
- * white 16px cards, Mukta type. All colours are oklch tokens.
+ * Store Coach design system — clean retail-ops look from the design file.
+ * Light grey page, white 24px cards, system blue for actions, pill buttons,
+ * SF / Inter type with tight headlines. All colours are oklch tokens.
  */
 
 @theme inline {
-  --font-sans: "Mukta", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Mukta", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
 
-  --radius-sm: calc(var(--radius) - 8px);
-  --radius-md: calc(var(--radius) - 6px);
-  --radius-lg: calc(var(--radius) - 4px);
-  --radius-xl: var(--radius);
-  --radius-2xl: calc(var(--radius) + 4px);
-  --radius-3xl: calc(var(--radius) + 12px);
-  --radius-4xl: calc(var(--radius) + 20px);
+  --radius-sm: calc(var(--radius) - 14px);
+  --radius-md: calc(var(--radius) - 12px);
+  --radius-lg: calc(var(--radius) - 10px);
+  --radius-xl: calc(var(--radius) - 8px);
+  --radius-2xl: calc(var(--radius) - 4px);
+  --radius-3xl: var(--radius);
+  --radius-4xl: calc(var(--radius) + 8px);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -60,104 +61,76 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  /* Brand */
-  --color-maroon: var(--maroon);
-  --color-maroon-deep: var(--maroon-deep);
-  --color-maroon-soft: var(--maroon-soft);
-  --color-marigold: var(--marigold);
-  --color-marigold-soft: var(--marigold-soft);
-  --color-marigold-ink: var(--marigold-ink);
-  --color-teal: var(--teal);
-  --color-teal-soft: var(--teal-soft);
-  --color-ivory: var(--ivory);
-  --color-on-maroon: var(--on-maroon);
-  --color-on-maroon-muted: var(--on-maroon-muted);
-
-  /* Follow-up results */
-  --color-improved: var(--improved);
-  --color-improved-soft: var(--improved-soft);
-  --color-nochange: var(--nochange);
-  --color-nochange-soft: var(--nochange-soft);
-  --color-worse: var(--worse);
-  --color-worse-soft: var(--worse-soft);
+  /* Semantic tones */
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-good: var(--good);
+  --color-good-soft: var(--good-soft);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
   --color-live: var(--live);
-
-  /* WhatsApp-style phone mock-up */
-  --color-wa-wall: var(--wa-wall);
-  --color-wa-bubble: var(--wa-bubble);
-  --color-wa-header: var(--wa-header);
-  --color-wa-ink: var(--wa-ink);
+  --color-surface: var(--surface);
+  --color-chart-soft: var(--chart-soft);
+  --color-chart-dim: var(--chart-dim);
 }
 
 :root {
-  --radius: 1rem;
+  --radius: 1.5rem;
 
-  --ivory: oklch(0.978 0.011 80);
-  --background: oklch(0.972 0.013 80);
-  --foreground: oklch(0.24 0.027 359);
+  --background: oklch(0.97 0.002 286);
+  --foreground: oklch(0.2 0.004 286);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.24 0.027 359);
+  --card-foreground: var(--foreground);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.24 0.027 359);
+  --popover-foreground: var(--foreground);
+  --surface: oklch(1 0 0);
 
-  --maroon: oklch(0.393 0.125 11);
-  --maroon-deep: oklch(0.3 0.1 10.7);
-  --maroon-soft: oklch(0.95 0.025 10);
-  --on-maroon: oklch(0.985 0.01 80);
-  --on-maroon-muted: oklch(0.86 0.04 40);
-  --marigold: oklch(0.755 0.152 78.6);
-  --marigold-soft: oklch(0.955 0.05 85);
-  --marigold-ink: oklch(0.42 0.09 65);
-  --teal: oklch(0.511 0.086 186.4);
-  --teal-soft: oklch(0.95 0.03 186);
+  --primary: oklch(0.57 0.2 256);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.96 0.002 286);
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(0.96 0.002 286);
+  --muted-foreground: oklch(0.52 0.008 286);
+  --accent: oklch(0.95 0.003 286);
+  --accent-foreground: var(--foreground);
+  --destructive: oklch(0.55 0.2 27);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.92 0.003 286);
+  --input: oklch(0.86 0.005 286);
+  --ring: oklch(0.57 0.2 256 / 0.45);
 
-  --primary: var(--maroon);
-  --primary-foreground: var(--on-maroon);
-  --secondary: oklch(0.953 0.018 81);
-  --secondary-foreground: oklch(0.3 0.06 15);
-  --muted: oklch(0.955 0.014 80);
-  --muted-foreground: oklch(0.5 0.03 25);
-  --accent: var(--marigold);
-  --accent-foreground: oklch(0.27 0.06 60);
-  --destructive: oklch(0.56 0.2 27);
-  --destructive-foreground: oklch(0.985 0.01 80);
-  --border: oklch(0.9 0.02 75);
-  --input: oklch(0.88 0.022 75);
-  --ring: var(--marigold);
+  --info: oklch(0.5 0.16 256);
+  --info-soft: oklch(0.95 0.025 256);
+  --warn: oklch(0.47 0.12 55);
+  --warn-soft: oklch(0.96 0.03 70);
+  --good: oklch(0.5 0.13 150);
+  --good-soft: oklch(0.95 0.04 150);
+  --bad: oklch(0.52 0.19 27);
+  --bad-soft: oklch(0.95 0.03 25);
+  --live: oklch(0.72 0.19 147);
+  --chart-soft: oklch(0.88 0.045 256);
+  --chart-dim: oklch(0.86 0.006 286);
 
-  --improved: oklch(0.52 0.12 165);
-  --improved-soft: oklch(0.95 0.04 165);
-  --nochange: oklch(0.58 0.11 70);
-  --nochange-soft: oklch(0.96 0.045 85);
-  --worse: oklch(0.53 0.19 27);
-  --worse-soft: oklch(0.955 0.03 25);
-  --live: oklch(0.74 0.19 150);
-
-  --wa-wall: oklch(0.925 0.013 71);
-  --wa-bubble: oklch(0.946 0.072 131.5);
-  --wa-header: oklch(0.434 0.075 182.2);
-  --wa-ink: oklch(0.22 0.01 150);
-
-  --chart-1: var(--maroon);
-  --chart-2: var(--marigold);
-  --chart-3: var(--teal);
-  --chart-4: oklch(0.6 0.08 40);
-  --chart-5: oklch(0.7 0.06 260);
+  --chart-1: var(--primary);
+  --chart-2: oklch(0.7 0.006 286);
+  --chart-3: var(--warn);
+  --chart-4: var(--good);
+  --chart-5: var(--bad);
 
   --sidebar: var(--card);
   --sidebar-foreground: var(--foreground);
-  --sidebar-primary: var(--maroon);
-  --sidebar-primary-foreground: var(--on-maroon);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
   --sidebar-accent: var(--secondary);
-  --sidebar-accent-foreground: var(--secondary-foreground);
+  --sidebar-accent-foreground: var(--foreground);
   --sidebar-border: var(--border);
   --sidebar-ring: var(--ring);
 
-  --header-band: radial-gradient(circle at 12px 12px, oklch(1 0 0 / 0.06) 2px, transparent 2.5px) 0 0 / 24px 24px,
-    linear-gradient(120deg, var(--maroon-deep), var(--maroon) 60%, oklch(0.42 0.13 18));
-  --shadow-card: 0 1px 2px oklch(0.3 0.05 20 / 0.06), 0 10px 30px -18px oklch(0.3 0.08 15 / 0.35);
-  --shadow-lift: 0 2px 4px oklch(0.3 0.05 20 / 0.08), 0 18px 40px -20px oklch(0.3 0.1 15 / 0.45);
-  --shadow-fab: 0 10px 30px -8px oklch(0.39 0.125 11 / 0.6);
+  --shadow-card: 0 1px 2px oklch(0.2 0.01 286 / 0.04), 0 12px 32px -20px oklch(0.2 0.01 286 / 0.18);
+  --shadow-float: 0 2px 6px oklch(0.2 0.01 286 / 0.06), 0 24px 48px -24px oklch(0.2 0.01 286 / 0.3);
+  --shadow-fab: 0 10px 28px -8px oklch(0.57 0.2 256 / 0.55);
 }
 
 @layer base {
@@ -173,23 +146,26 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
-    font-feature-settings: "tnum" 0;
+    letter-spacing: -0.006em;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
   }
 
   ::selection {
-    background: var(--marigold-soft);
+    background: var(--info-soft);
   }
 }
 
-@utility header-band {
-  background: var(--header-band);
-  color: var(--on-maroon);
-}
-
-@utility coach-card {
-  background: var(--card);
-  border: 1px solid var(--border);
+/* White rounded card on the grey page */
+@utility surface {
+  background: var(--surface);
   border-radius: var(--radius);
   box-shadow: var(--shadow-card);
 }
@@ -198,12 +174,29 @@
   box-shadow: var(--shadow-card);
 }
 
-@utility shadow-lift {
-  box-shadow: var(--shadow-lift);
+@utility shadow-float {
+  box-shadow: var(--shadow-float);
 }
 
 @utility shadow-fab {
   box-shadow: var(--shadow-fab);
+}
+
+/* Big page headline: "3 issues. ₹4.2L at stake." */
+@utility headline {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.04;
+}
+
+/* Large tabular figures: rupees, KPIs */
+@utility figure {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
 @utility tabular {
@@ -213,8 +206,8 @@
 @utility live-dot {
   position: relative;
   display: inline-block;
-  width: 0.6rem;
-  height: 0.6rem;
+  width: 0.55rem;
+  height: 0.55rem;
   border-radius: 9999px;
   background: var(--live);
   &::after {
@@ -223,27 +216,14 @@
     inset: 0;
     border-radius: 9999px;
     background: var(--live);
-    animation: live-ping 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+    animation: live-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
   }
-}
-
-@utility wa-wall {
-  background:
-    radial-gradient(circle at 10px 10px, oklch(0.4 0.03 70 / 0.07) 1.5px, transparent 2px) 0 0 / 20px 20px,
-    var(--wa-wall);
-}
-
-@utility rupee-figure {
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
 }
 
 @keyframes live-ping {
   75%,
   100% {
-    transform: scale(2.4);
+    transform: scale(2.2);
     opacity: 0;
   }
 }

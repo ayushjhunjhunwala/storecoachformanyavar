@@ -1,130 +1,122 @@
-import { CalendarClock, Database, MapPinned, Store } from "lucide-react";
+import type { ReactNode } from "react";
 import type { ManagerView } from "@/lib/coach/types";
-import { formatNumber, formatShortDate, formatSignedPct } from "@/lib/coach/format";
-import { Panel, StatTile } from "./primitives";
+import { formatDateWithYear, formatNumber, formatSignedPct } from "@/lib/coach/format";
+import { Chip, type ChipTone, StatTile } from "./primitives";
 
 export function HqTiles({ view }: { view: ManagerView }) {
-  const weekNow = view.weeks[view.weeks.length - 1];
-  const maxPerAm = Math.max(0, ...Object.values(weekNow?.by_am ?? {}).map((x) => x.count));
-  const run = view.runs[view.runs.length - 1];
+  const maxPerAm = Math.max(0, ...view.weeks.flatMap((w) => Object.values(w.by_am).map((x) => x.count)));
+  const cap = Math.max(...view.area_managers.map((a) => Number(a.max_alerts_per_week) || 5), 5);
+  const longest = Math.max(0, ...view.runs.map((r) => r.max_card_words));
+  const slowest = Math.max(0, ...view.runs.map((r) => r.secs));
   const net = view.network;
-  const change = net && net.ly_bills ? net.bills / net.ly_bills - 1 : null;
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <StatTile label="Runs completed" value={`${view.runs.length} / ${view.dates.length}`} hint="One run every morning, nobody asked" />
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <StatTile
-        label="Max issues per AM"
-        value={maxPerAm}
-        tone={maxPerAm <= 5 ? "good" : "bad"}
-        hint={`Cap ≤ 5 · digest of ${formatShortDate(view.digest_date)}`}
+        label="Daily runs"
+        value={`${view.runs.length} of ${view.dates.length}`}
+        delta={slowest < 1 ? "under 1 second each" : `slowest ${slowest.toFixed(2)} seconds`}
       />
       <StatTile
-        label="Longest card"
-        value={run ? `${run.max_card_words}` : "—"}
-        tone={run && run.max_card_words <= 60 ? "good" : "bad"}
-        hint="words · cap ≤ 60"
+        label="Most issues to one manager"
+        value={`${maxPerAm} / ${cap}`}
+        delta={maxPerAm <= cap ? "cap held every week" : "cap broken"}
+        tone={maxPerAm <= cap ? "neutral" : "bad"}
       />
+      <StatTile label="Longest card" value={`${longest} words`} delta="limit 60" tone={longest <= 60 ? "neutral" : "bad"} />
       <StatTile
-        label="Network bills vs last year"
-        value={formatSignedPct(change, 0)}
-        tone="warn"
-        hint={net ? `${formatNumber(net.bills)} vs ${formatNumber(net.ly_bills)}, last 4 weeks` : undefined}
+        label="Network bills · 28 days"
+        value={net ? formatNumber(net.bills) : "—"}
+        delta={net ? `${formatNumber(net.ly_bills)} same weeks last year` : undefined}
       />
     </div>
   );
 }
 
+function GuardCard({ tag, tone, title, children }: { tag: string; tone: ChipTone; title: string; children: ReactNode }) {
+  return (
+    <article className="surface flex flex-col gap-3 p-6">
+      <Chip tone={tone} size="sm" className="w-fit">
+        {tag}
+      </Chip>
+      <h3 className="text-lg font-semibold text-foreground">{title}</h3>
+      <div className="text-[1.02rem] leading-relaxed text-foreground/80">{children}</div>
+    </article>
+  );
+}
+
+/** "What it chose not to raise": calendar, market, data and new-store guardrails, plus the weekly cap. */
 export function NotRaised({ view, scope = "network" }: { view: ManagerView; scope?: "network" | "zone" }) {
   const net = view.network;
   const change = net && net.ly_bills ? net.bills / net.ly_bills - 1 : null;
   const diwali = Object.values(view.upcoming)
     .flat()
     .find((u) => u.festival === "Diwali");
-  const newStores = view.store_order
-    .map((id) => view.stores[id])
-    .filter((b) => b?.kpi?.new_store);
+  const cities = new Map<string, { bills: number; ly: number }>();
+  for (const id of view.store_order) {
+    const k = view.stores[id]?.kpi;
+    if (!k || k.new_store || !k.ly_bills) continue;
+    const c = cities.get(k.city) ?? { bills: 0, ly: 0 };
+    c.bills += k.bills;
+    c.ly += k.ly_bills;
+    cities.set(k.city, c);
+  }
+  const everyCityDown = cities.size > 0 && [...cities.values()].every((c) => c.bills < c.ly);
+  const newStores = view.store_order.map((id) => view.stores[id]).filter((b) => b?.kpi?.new_store);
   const run = view.runs[view.runs.length - 1];
+  const zoneOfCity = (city: string) => view.market.find((m) => m.city === city)?.zone;
+
+  const cards: ReactNode[] = [];
+  if (scope === "network" && change != null && change < 0 && diwali && everyCityDown) {
+    cards.push(
+      <GuardCard key="cal" tag="Calendar" tone="neutral" title="Festival shift">
+        Bills are {formatSignedPct(change, 0).replace("−", "")} below last year in every city at once. Diwali moved from 20 Oct 2025 to{" "}
+        {formatDateWithYear(diwali.date)}. No store is alerted.
+      </GuardCard>,
+    );
+  }
+  for (const m of view.market) {
+    const stores = view.store_order.filter((id) => view.stores[id]?.meta.city === m.city).length;
+    cards.push(
+      <GuardCard key={`m-${m.city}`} tag={`To ${zoneOfCity(m.city) ?? m.zone} zonal head`} tone="info" title={`${m.city} market slowdown`}>
+        Walk-ins {formatSignedPct(m.value, 0)} vs {formatSignedPct(m.others, 0)} for other cities
+        {m.weeks ? `; trails in ${m.weeks} of ${m.weekly?.length ?? 6} weeks` : ""}
+        {m.share_down === 1 && stores ? `; all ${stores} stores move together` : ""}. Store alerts held back.
+      </GuardCard>,
+    );
+  }
+  for (const f of view.flags) {
+    cards.push(
+      <GuardCard key={`f-${f.store_id}-${f.type}`} tag={`To ${f.routed_to}`} tone="warn" title={`${f.store_id}: ${f.type.toLowerCase()}`}>
+        {f.detail}
+      </GuardCard>,
+    );
+  }
+  for (const b of newStores) {
+    if (!b) continue;
+    cards.push(
+      <GuardCard key={`n-${b.meta.store_id}`} tag="New store" tone="neutral" title={b.meta.store_id}>
+        Opened {formatDateWithYear(b.meta.opened_on)}. Compared only with {b.meta.tier}-tier peers; no year-on-year alerts.
+      </GuardCard>,
+    );
+  }
+  if (run && run.candidates > run.issues) {
+    cards.push(
+      <GuardCard key="cap" tag="Weekly cap" tone="neutral" title={`${run.candidates - run.issues} candidates held back`}>
+        Found today but below the line: each area manager gets at most five ranked issues a week.
+      </GuardCard>,
+    );
+  }
 
   return (
-    <Panel
-      title="What the system chose not to raise"
-      subtitle="Guardrails: none of these reach an area manager as an alert."
-    >
-      <ul className="grid gap-x-8 gap-y-5 md:grid-cols-2">
-        {scope === "network" && (
-          <li className="flex gap-3">
-            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-marigold-soft text-marigold-ink">
-              <CalendarClock className="size-4" />
-            </span>
-            <div className="text-sm">
-              <p className="font-bold text-foreground">Festival shift · calendar, no alert</p>
-              <p className="leading-relaxed text-muted-foreground">
-                Network bills are {formatSignedPct(change, 0)} vs the same weeks last year because Diwali moved from 20 Oct
-                2025 to {diwali ? formatShortDate(diwali.date) : "8 Nov"} 2026. Seasonal swings alone never fire an alert.
-              </p>
-            </div>
-          </li>
-        )}
-        <li className="flex gap-3">
-          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-teal-soft text-teal">
-            <MapPinned className="size-4" />
-          </span>
-          <div className="text-sm">
-            <p className="font-bold text-foreground">Market issues · to the zonal head</p>
-            {view.market.length ? (
-              view.market.map((m) => (
-                <p key={m.city} className="leading-relaxed text-muted-foreground">
-                  {m.text}
-                </p>
-              ))
-            ) : (
-              <p className="text-muted-foreground">No city-wide slowdown today.</p>
-            )}
-          </div>
-        </li>
-        <li className="flex gap-3">
-          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-maroon-soft text-maroon">
-            <Database className="size-4" />
-          </span>
-          <div className="text-sm">
-            <p className="font-bold text-foreground">Data issues · to Data/IT</p>
-            {view.flags.length ? (
-              view.flags.map((f) => (
-                <p key={f.store_id + f.type} className="leading-relaxed text-muted-foreground">
-                  <b className="text-foreground">{f.store_id}</b> · {f.type}. {f.detail}
-                </p>
-              ))
-            ) : (
-              <p className="text-muted-foreground">No data problems flagged today.</p>
-            )}
-          </div>
-        </li>
-        <li className="flex gap-3">
-          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
-            <Store className="size-4" />
-          </span>
-          <div className="text-sm">
-            <p className="font-bold text-foreground">New stores · peers only</p>
-            {newStores.length ? (
-              newStores.map((b) =>
-                b ? (
-                  <p key={b.meta.store_id} className="leading-relaxed text-muted-foreground">
-                    <b className="text-foreground">{b.meta.store_id}</b> opened {formatShortDate(b.meta.opened_on)}: compared
-                    with {b.meta.tier}-tier peers only, not with last year.
-                  </p>
-                ) : null,
-              )
-            ) : (
-              <p className="text-muted-foreground">No new store in scope on this date.</p>
-            )}
-          </div>
-        </li>
-        {run && run.candidates > run.issues && (
-          <li className="text-sm text-muted-foreground md:col-span-2">
-            {run.candidates - run.issues} candidate issues were held back today by the 5-per-manager cap.
-          </li>
-        )}
-      </ul>
-    </Panel>
+    <section aria-labelledby="not-raised" className="flex flex-col gap-4">
+      <h2 id="not-raised" className="text-2xl font-semibold text-foreground sm:text-[1.75rem]">
+        What it chose not to raise
+      </h2>
+      {cards.length ? (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{cards}</div>
+      ) : (
+        <p className="surface p-6 text-[1.05rem] text-muted-foreground">Nothing was held back on this date.</p>
+      )}
+    </section>
   );
 }
