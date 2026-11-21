@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1795248275733,
+      "tag": "0000_store_coach_profiles_chat_and_hq",
+      "breakpoints": true
+    }
+  ]
+}
