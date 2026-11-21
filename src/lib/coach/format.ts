@@ -55,6 +55,13 @@ export function formatShortDate(date: string | null | undefined): string {
   return `${DAYS[wd]} ${d} ${MONTHS[m - 1]}`;
 }
 
+/** "9 Nov 2025": for dates outside the replay month, where the year matters. */
+export function formatDateWithYear(date: string | null | undefined): string {
+  if (!date) return "—";
+  const { y, m, d } = parseIso(date);
+  return `${d} ${MONTHS[m - 1]} ${y}`;
+}
+
 /** "10 Oct" */
 export function formatDayMonth(date: string): string {
   const { m, d } = parseIso(date);

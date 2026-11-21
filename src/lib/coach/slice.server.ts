@@ -222,7 +222,9 @@ function buildMyView(index: CoachIndex, profile: ViewProfile, date: string): MyV
   const day = index.dayByDate.get(date);
   const store = index.storeById.get(person.store_id);
   const teamDay = teamDayFor(index, date);
-  const card = day?.cards.find((c) => c.sp === id) ?? null;
+  const rawCard = day?.cards.find((c) => c.sp === id) ?? null;
+  // The card text names its peer already; drop the peer's id so no colleague identifier is sent.
+  const card = rawCard ? { ...rawCard, peer: null } : null;
   const mentorPair = day?.mentors.find((m) => m.mentee === id) ?? null;
   const cb = index.meta.callbacks[person.store_id];
   const own = (cb?.items ?? []).filter((item) => item.owner === id);
