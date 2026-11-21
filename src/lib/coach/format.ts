@@ -183,3 +183,21 @@ export function describeUpcoming(days: { date: string; festival: string | null; 
   if (!weddings.length) return festivals.join(" and ");
   return `${weddings.join(", ")}${festivals.length ? `, plus ${festivals.join(" and ")}` : ""}`;
 }
+
+/** Follow-up measures: store bills are a ratio to other stores (×); rates and shares are percentages. */
+export function formatMeasure(kpi: string, value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return "too few to judge";
+  if (/bills per week/i.test(kpi)) return `${value.toFixed(2)}×`;
+  return `${(value * 100).toFixed(1)}%`;
+}
+
+/** "2 min ago", "3 h ago", "Mon 2 Nov" for older events. */
+export function formatWhen(iso: string, now = Date.now()): string {
+  const t = Date.parse(iso);
+  const mins = Math.max(0, Math.round((now - t) / 60_000));
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours} h ago`;
+  return new Date(t).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
+}

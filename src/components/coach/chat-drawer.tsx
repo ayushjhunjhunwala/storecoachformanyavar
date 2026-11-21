@@ -258,7 +258,7 @@ export function ChatDrawer({ userId, fabClassName }: { userId: string; fabClassN
         type="button"
         onClick={() => setOpen(true)}
         className={cn(
-          "shadow-fab fixed bottom-5 right-5 z-40 flex items-center gap-2 rounded-full bg-primary py-3.5 pl-4 pr-5 font-semibold text-primary-foreground transition-transform hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring",
+          "shadow-fab fixed bottom-20 right-4 z-40 md:bottom-5 md:right-5 print:hidden flex items-center gap-2 rounded-full bg-primary py-3.5 pl-4 pr-5 font-semibold text-primary-foreground transition-transform hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring",
           fabClassName,
         )}
         aria-label="Ask Store Coach"

@@ -1,74 +1,10 @@
 import { Link } from "@tanstack/react-router";
-import { Check, Copy, RotateCcw } from "lucide-react";
-import { toast } from "sonner";
 import type { FollowupView, Issue } from "@/lib/coach/types";
 import { RESULT_LABEL, formatDayMonth, formatRupees } from "@/lib/coach/format";
 import { addDays } from "@/lib/coach/logic";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Callout, Chip, LeverChip, resultText } from "./primitives";
-import { statusKey, useActionStatus } from "./use-action-status";
-
-export type IssueStatus = "done" | "dismissed";
-
-export function whatsappText(issue: Issue): string {
-  return [
-    `*${issue.title}* (${issue.store_id})`,
-    issue.cause,
-    `*Do this · ${issue.when} · ${issue.who}*`,
-    issue.action,
-    `${formatRupees(issue.rupees)} at stake / 4 weeks`,
-  ].join("\n");
-}
-
-export async function copyIssue(issue: Issue) {
-  try {
-    await navigator.clipboard.writeText(whatsappText(issue));
-    toast.success("Copied for WhatsApp", { description: `${issue.store_id} · ${issue.title}` });
-  } catch {
-    toast.error("Could not copy. Select the text and copy it by hand.");
-  }
-}
-
-/** Mark done / Dismiss / Copy for WhatsApp, saved to the signed-in person's account. */
-export function IssueActions({ issue, layout = "row" }: { issue: Issue; layout?: "row" | "stack" }) {
-  const [status, setStatus] = useActionStatus<IssueStatus>(statusKey.issue(issue.id));
-  const stack = layout === "stack";
-  return (
-    <div className={cn("flex flex-wrap items-center gap-3", stack && "grid grid-cols-2 gap-3")}>
-      {status ? (
-        <>
-          <span
-            className={cn(
-              "inline-flex h-11 items-center gap-2 rounded-full px-5 font-semibold",
-              status === "done" ? "bg-good-soft text-good" : "bg-secondary text-muted-foreground",
-              stack && "col-span-2 justify-center",
-            )}
-            role="status"
-          >
-            {status === "done" ? <Check className="size-4" /> : null}
-            {status === "done" ? "Done" : "Dismissed"}
-          </span>
-          <Button variant="quiet" onClick={() => setStatus(null)} className={cn(stack && "col-span-2")}>
-            <RotateCcw /> Undo
-          </Button>
-        </>
-      ) : (
-        <>
-          <Button onClick={() => setStatus("done")} className={cn(stack && "col-span-2 h-12")}>
-            Mark done
-          </Button>
-          <Button variant="secondary" onClick={() => setStatus("dismissed")} className={cn(stack && "col-span-2")}>
-            Dismiss
-          </Button>
-        </>
-      )}
-      <Button variant="secondary" onClick={() => void copyIssue(issue)} className={cn(stack && "col-span-2")}>
-        <Copy className={cn(!stack && "hidden sm:block")} /> Copy for WhatsApp
-      </Button>
-    </div>
-  );
-}
+import { BoardActionControls } from "./action-panel";
 
 /** "Follow-up, 26 Oct · Store bills vs all other stores…" or when the follow-up is due. */
 export function FollowupLine({ issue, followup, date }: { issue: Issue; followup?: FollowupView | undefined; date: string }) {
@@ -103,10 +39,9 @@ export function IssueCard({
   date: string;
   interactive?: boolean;
 }) {
-  const [status] = useActionStatus<IssueStatus>(statusKey.issue(issue.id));
   return (
     <article
-      className={cn("surface animate-rise p-6 transition-opacity sm:p-8", status === "dismissed" && "opacity-55")}
+      className="surface animate-rise p-6 sm:p-8"
       aria-label={`Issue ${issue.rank}: ${issue.title}`}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -143,7 +78,7 @@ export function IssueCard({
 
       {interactive && (
         <div className="mt-6">
-          <IssueActions issue={issue} />
+          <BoardActionControls issue={issue} />
         </div>
       )}
     </article>

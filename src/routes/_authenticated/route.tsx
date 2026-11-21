@@ -34,7 +34,7 @@ function AuthedLayout() {
   const showChat = profile.role !== "salesperson" && !pathname.startsWith("/me");
   return (
     <ReplayProvider>
-      <AppShell profile={profile}>
+      <AppShell profile={profile} userId={userId}>
         <Outlet />
       </AppShell>
       {/* On /am the assistant sits inline in the right column on wide screens. */}

@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as AuthenticatedActionsRouteImport } from './routes/_authenticated/actions'
 import { Route as AuthenticatedAmRouteImport } from './routes/_authenticated/am'
 import { Route as AuthenticatedHqRouteImport } from './routes/_authenticated/hq'
 import { Route as AuthenticatedMeRouteImport } from './routes/_authenticated/me'
@@ -20,6 +21,7 @@ import { Route as AuthenticatedZoneRouteImport } from './routes/_authenticated/z
 import { Route as AuthenticatedIssueIssueIdRouteImport } from './routes/_authenticated/issue.$issueId'
 import { Route as AuthenticatedMeCallbacksRouteImport } from './routes/_authenticated/me_.callbacks'
 import { Route as AuthenticatedStoreRosterRouteImport } from './routes/_authenticated/store_.roster'
+import { Route as AuthenticatedIssueIssueIdInvestigateRouteImport } from './routes/_authenticated/issue.$issueId_.investigate'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -34,6 +36,11 @@ const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedActionsRoute = AuthenticatedActionsRouteImport.update({
+  id: '/actions',
+  path: '/actions',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedAmRoute = AuthenticatedAmRouteImport.update({
   id: '/am',
@@ -78,10 +85,17 @@ const AuthenticatedStoreRosterRoute =
     path: '/store/roster',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedIssueIssueIdInvestigateRoute =
+  AuthenticatedIssueIssueIdInvestigateRouteImport.update({
+    id: '/issue/$issueId_/investigate',
+    path: '/issue/$issueId/investigate',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/actions': typeof AuthenticatedActionsRoute
   '/am': typeof AuthenticatedAmRoute
   '/hq': typeof AuthenticatedHqRoute
   '/me': typeof AuthenticatedMeRoute
@@ -90,10 +104,12 @@ export interface FileRoutesByFullPath {
   '/issue/$issueId': typeof AuthenticatedIssueIssueIdRoute
   '/me/callbacks': typeof AuthenticatedMeCallbacksRoute
   '/store/roster': typeof AuthenticatedStoreRosterRoute
+  '/issue/$issueId/investigate': typeof AuthenticatedIssueIssueIdInvestigateRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/actions': typeof AuthenticatedActionsRoute
   '/am': typeof AuthenticatedAmRoute
   '/hq': typeof AuthenticatedHqRoute
   '/me': typeof AuthenticatedMeRoute
@@ -102,12 +118,14 @@ export interface FileRoutesByTo {
   '/issue/$issueId': typeof AuthenticatedIssueIssueIdRoute
   '/me/callbacks': typeof AuthenticatedMeCallbacksRoute
   '/store/roster': typeof AuthenticatedStoreRosterRoute
+  '/issue/$issueId/investigate': typeof AuthenticatedIssueIssueIdInvestigateRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/login': typeof LoginRoute
+  '/_authenticated/actions': typeof AuthenticatedActionsRoute
   '/_authenticated/am': typeof AuthenticatedAmRoute
   '/_authenticated/hq': typeof AuthenticatedHqRoute
   '/_authenticated/me': typeof AuthenticatedMeRoute
@@ -116,12 +134,14 @@ export interface FileRoutesById {
   '/_authenticated/issue/$issueId': typeof AuthenticatedIssueIssueIdRoute
   '/_authenticated/me_/callbacks': typeof AuthenticatedMeCallbacksRoute
   '/_authenticated/store_/roster': typeof AuthenticatedStoreRosterRoute
+  '/_authenticated/issue/$issueId_/investigate': typeof AuthenticatedIssueIssueIdInvestigateRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/login'
+    | '/actions'
     | '/am'
     | '/hq'
     | '/me'
@@ -130,10 +150,12 @@ export interface FileRouteTypes {
     | '/issue/$issueId'
     | '/me/callbacks'
     | '/store/roster'
+    | '/issue/$issueId/investigate'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/login'
+    | '/actions'
     | '/am'
     | '/hq'
     | '/me'
@@ -142,11 +164,13 @@ export interface FileRouteTypes {
     | '/issue/$issueId'
     | '/me/callbacks'
     | '/store/roster'
+    | '/issue/$issueId/investigate'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/login'
+    | '/_authenticated/actions'
     | '/_authenticated/am'
     | '/_authenticated/hq'
     | '/_authenticated/me'
@@ -155,6 +179,7 @@ export interface FileRouteTypes {
     | '/_authenticated/issue/$issueId'
     | '/_authenticated/me_/callbacks'
     | '/_authenticated/store_/roster'
+    | '/_authenticated/issue/$issueId_/investigate'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -185,6 +210,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/actions': {
+      id: '/_authenticated/actions'
+      path: '/actions'
+      fullPath: '/actions'
+      preLoaderRoute: typeof AuthenticatedActionsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/am': {
       id: '/_authenticated/am'
@@ -242,10 +274,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedStoreRosterRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/issue/$issueId_/investigate': {
+      id: '/_authenticated/issue/$issueId_/investigate'
+      path: '/issue/$issueId/investigate'
+      fullPath: '/issue/$issueId/investigate'
+      preLoaderRoute: typeof AuthenticatedIssueIssueIdInvestigateRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedActionsRoute: typeof AuthenticatedActionsRoute
   AuthenticatedAmRoute: typeof AuthenticatedAmRoute
   AuthenticatedHqRoute: typeof AuthenticatedHqRoute
   AuthenticatedMeRoute: typeof AuthenticatedMeRoute
@@ -254,9 +294,11 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedIssueIssueIdRoute: typeof AuthenticatedIssueIssueIdRoute
   AuthenticatedMeCallbacksRoute: typeof AuthenticatedMeCallbacksRoute
   AuthenticatedStoreRosterRoute: typeof AuthenticatedStoreRosterRoute
+  AuthenticatedIssueIssueIdInvestigateRoute: typeof AuthenticatedIssueIssueIdInvestigateRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedActionsRoute: AuthenticatedActionsRoute,
   AuthenticatedAmRoute: AuthenticatedAmRoute,
   AuthenticatedHqRoute: AuthenticatedHqRoute,
   AuthenticatedMeRoute: AuthenticatedMeRoute,
@@ -265,6 +307,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedIssueIssueIdRoute: AuthenticatedIssueIssueIdRoute,
   AuthenticatedMeCallbacksRoute: AuthenticatedMeCallbacksRoute,
   AuthenticatedStoreRosterRoute: AuthenticatedStoreRosterRoute,
+  AuthenticatedIssueIssueIdInvestigateRoute:
+    AuthenticatedIssueIssueIdInvestigateRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

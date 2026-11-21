@@ -1,9 +1,20 @@
 import { Link, createFileRoute, redirect } from "@tanstack/react-router";
-import { ChevronLeft } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { ChevronLeft, Loader2 } from "lucide-react";
 import type { FollowupHistory, Issue, ManagerView } from "@/lib/coach/types";
+import type { IssueActivity } from "@/lib/coach/actions.types";
+import { issueActivityQueryOptions } from "@/lib/coach/action-queries";
 import { followupKey, homeFor } from "@/lib/coach/logic";
-import { RESULT_LABEL, formatDayMonth, formatNumber, formatPct, formatRupees, formatWeekdayDayMonth } from "@/lib/coach/format";
-import { IssueActions } from "@/components/coach/issue-card";
+import {
+  RESULT_LABEL,
+  formatDayMonth,
+  formatMeasure,
+  formatNumber,
+  formatPct,
+  formatRupees,
+  formatWeekdayDayMonth,
+} from "@/lib/coach/format";
+import { ActionControls, ActionHistory, ActionSummary, StateChip } from "@/components/coach/action-panel";
 import { Card, Chip, EmptyNote, LeverChip, resultText } from "@/components/coach/primitives";
 import { ManagerGate, useCoachView } from "@/components/coach/view-gate";
 import { cn } from "@/lib/utils";
@@ -24,12 +35,6 @@ export const Route = createFileRoute("/_authenticated/issue/$issueId")({
   }),
   component: IssuePage,
 });
-
-/** "1.00× when sent → 0.92× in the 7 days after" → "0.92×". */
-function afterValue(h: FollowupHistory): string {
-  const m = h.text.match(/→\s*([^\s]+)\s+in the 7 days/);
-  return m?.[1] ?? "";
-}
 
 /** "Store bills vs all other stores, same week: 1.00× when sent…" → the measure before the colon. */
 function measureName(h: FollowupHistory | undefined): string | null {
@@ -55,7 +60,7 @@ function BackLink({ role }: { role: string }) {
   );
 }
 
-function IssueDetail({ issue, view }: { issue: Issue; view: ManagerView }) {
+function IssueDetail({ issue, view, activity }: { issue: Issue; view: ManagerView; activity: IssueActivity }) {
   const followup = view.followups.find((f) => f.key === followupKey(issue));
   const history = followup?.history ?? [];
   const latest = history[history.length - 1];
@@ -70,7 +75,9 @@ function IssueDetail({ issue, view }: { issue: Issue; view: ManagerView }) {
       <div className="flex flex-wrap items-center gap-2">
         <LeverChip lever={issue.lever} />
         <Chip tone="outline">{issue.store_id}</Chip>
-        <Chip tone="outline">#{issue.rank} this week</Chip>
+        <Chip tone="outline">
+          #{issue.rank} · week of {formatDayMonth(activity.week_date)}
+        </Chip>
       </div>
       <div className="flex flex-wrap items-end justify-between gap-6">
         <h1 className="headline max-w-3xl text-4xl text-foreground sm:text-[3.4rem]">{issue.title}</h1>
@@ -82,8 +89,18 @@ function IssueDetail({ issue, view }: { issue: Issue; view: ManagerView }) {
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,25rem)]">
         <div className="flex min-w-0 flex-col gap-6">
-          <Card title="Why">
+          <Card
+            title="Why"
+            aside={
+              <Link to="/issue/$issueId/investigate" params={{ issueId: issue.id }} className="font-semibold text-primary hover:underline">
+                Open evidence review
+              </Link>
+            }
+          >
             <p className="text-[1.05rem] leading-relaxed text-foreground/80 sm:text-lg">{issue.cause}</p>
+            <p className="mt-3 text-sm text-muted-foreground">
+              Test it against market, calendar, stock, sample and data checks before acting.
+            </p>
           </Card>
 
           {kpi && (
@@ -119,12 +136,27 @@ function IssueDetail({ issue, view }: { issue: Issue; view: ManagerView }) {
               Do this · {issue.when} · {issue.who}
             </p>
             <p className="mt-3 text-lg leading-relaxed text-foreground">{issue.action}</p>
-            <div className="mt-6">
-              <IssueActions issue={issue} layout="stack" />
+            <p className="mt-4 flex flex-wrap items-center gap-2 text-[0.95rem]">
+              <StateChip action={activity.action} />
+              <ActionSummary action={activity.action} />
+            </p>
+            <div className="mt-5">
+              <ActionControls issue={issue} weekDate={activity.week_date} action={activity.action} layout="stack" />
             </div>
           </section>
 
-          <Card title="Follow-ups" subtitle={measureName(latest) ? `${measureName(latest)} (1.00× = same pace)` : undefined}>
+          <Card title="Action history" subtitle="Every change, who made it and why. History can't be edited.">
+            <ActionHistory events={activity.events} />
+          </Card>
+
+          <Card
+            title="Follow-ups"
+            subtitle={
+              measureName(latest)
+                ? `${measureName(latest)}${/bills per week/i.test(issue.kpi) ? " (1.00× = same pace)" : ""}. Measured 7 days after each send; observed movement, not proof the action caused it.`
+                : undefined
+            }
+          >
             {history.length === 0 ? (
               <p className="text-[1.05rem] text-muted-foreground">
                 Sent {followup ? formatDayMonth(followup.sends[followup.sends.length - 1] ?? followup.first_sent) : formatDayMonth(view.digest_date)}. The
@@ -139,7 +171,8 @@ function IssueDetail({ issue, view }: { issue: Issue; view: ManagerView }) {
                         Sent {formatDayMonth(h.sent_on)} → {formatDayMonth(h.on)}
                       </span>
                       <span className={cn("font-semibold", resultText[h.result])}>
-                        {afterValue(h)} · {RESULT_LABEL[h.result]?.toLowerCase()}
+                        {h.value == null ? "too few to judge" : `${formatMeasure(issue.kpi, h.baseline)} → ${formatMeasure(issue.kpi, h.value)}`} ·{" "}
+                        {RESULT_LABEL[h.result]?.toLowerCase()}
                       </span>
                     </li>
                   ))}
@@ -158,6 +191,7 @@ function IssuePage() {
   const { issueId } = Route.useParams();
   const { profile } = Route.useRouteContext();
   const query = useCoachView();
+  const activity = useQuery(issueActivityQueryOptions(issueId));
   return (
     <div className="flex flex-col gap-6">
       <div className="mx-auto w-full max-w-6xl">
@@ -165,17 +199,38 @@ function IssuePage() {
       </div>
       <ManagerGate query={query}>
         {(v) => {
-          const issue = v.digest.find((i) => i.id === issueId);
-          if (!issue) {
+          if (activity.isLoading) {
+            return (
+              <div className="mx-auto flex w-full max-w-6xl items-center gap-2 text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" /> Loading the issue…
+              </div>
+            );
+          }
+          if (activity.isError || !activity.data) {
             return (
               <div className="mx-auto w-full max-w-6xl">
                 <EmptyNote className="surface py-12 text-base">
-                  This issue isn't in the digest for {formatWeekdayDayMonth(v.date)}. Go back to see this week's issues.
+                  {activity.error instanceof Error && /scope/i.test(activity.error.message)
+                    ? "This issue isn't in your stores."
+                    : "Couldn't load this issue."}{" "}
+                  <button className="text-primary hover:underline" onClick={() => void activity.refetch()}>
+                    Try again
+                  </button>
                 </EmptyNote>
               </div>
             );
           }
-          return <IssueDetail issue={issue} view={v} />;
+          if (activity.data.week_date > v.date) {
+            return (
+              <div className="mx-auto w-full max-w-6xl">
+                <EmptyNote className="surface py-12 text-base">
+                  This issue was raised on {formatWeekdayDayMonth(activity.data.week_date)}, after the replay date {formatWeekdayDayMonth(v.date)}.
+                  Move the replay forward to see it.
+                </EmptyNote>
+              </div>
+            );
+          }
+          return <IssueDetail issue={activity.data.issue} view={v} activity={activity.data} />;
         }}
       </ManagerGate>
     </div>

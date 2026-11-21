@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, Check, RotateCcw } from "lucide-react";
+import { CalendarDays } from "lucide-react";
 import type { CallbackView, Issue, ManagerView, StoreBundle, TeamRow } from "@/lib/coach/types";
 import {
   FOCUS_LABEL,
@@ -17,8 +17,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { MentorPairs } from "./mentor-pairs";
 import { Card, DataTable, EmptyNote, PageHeader, StatTile } from "./primitives";
-import { statusKey, useActionStatus } from "./use-action-status";
-import type { IssueStatus } from "./issue-card";
+import { BoardActionControls } from "./action-panel";
 
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -75,31 +74,19 @@ function KpiTiles({ bundle, view }: { bundle: StoreBundle; view: ManagerView }) 
 }
 
 function ActionBanner({ issue, amName, interactive }: { issue: Issue; amName: string; interactive: boolean }) {
-  const [status, setStatus] = useActionStatus<IssueStatus>(statusKey.issue(issue.id));
   return (
-    <div className="surface flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-7">
+    <div className="surface flex flex-col gap-4 p-6 sm:p-7">
       <div className="min-w-0">
         <p className="text-sm font-semibold text-primary">From {amName}, this week</p>
         <p className="mt-1 text-[1.05rem] leading-relaxed text-foreground sm:text-lg">{issue.action}</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          {issue.title} · {issue.when}
+          <Link to="/issue/$issueId" params={{ issueId: issue.id }} className="hover:underline">
+            {issue.title}
+          </Link>{" "}
+          · {issue.when}
         </p>
       </div>
-      {interactive &&
-        (status === "done" ? (
-          <div className="flex shrink-0 items-center gap-2">
-            <span className="inline-flex h-11 items-center gap-2 rounded-full bg-good-soft px-5 font-semibold text-good" role="status">
-              <Check className="size-4" /> Done
-            </span>
-            <Button variant="quiet" onClick={() => setStatus(null)} aria-label="Undo mark done">
-              <RotateCcw />
-            </Button>
-          </div>
-        ) : (
-          <Button className="shrink-0" onClick={() => setStatus("done")}>
-            Mark done
-          </Button>
-        ))}
+      {interactive && <BoardActionControls issue={issue} />}
     </div>
   );
 }

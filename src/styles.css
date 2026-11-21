@@ -259,3 +259,35 @@
 @utility typing-dot {
   animation: typing-dot 1.2s infinite ease-in-out;
 }
+
+/* Replay marker: a still dot for historical replay; it only pulses while playing. */
+@utility replay-dot {
+  position: relative;
+  display: inline-block;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 9999px;
+  background: var(--muted-foreground);
+  &[data-playing="true"] {
+    background: var(--primary);
+  }
+  &[data-playing="true"]::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    background: var(--primary);
+    animation: live-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

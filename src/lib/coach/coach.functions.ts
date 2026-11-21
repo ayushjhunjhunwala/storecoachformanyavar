@@ -2,13 +2,10 @@
 // reads their role from their own user_roles row (RLS: own row only, no client
 // writes) before touching data.json, which lives in a private bucket.
 import { createServerFn } from "@tanstack/react-start";
-import { setResponseStatus } from "@tanstack/react-start/server";
 import { z } from "zod";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/integrations/supabase/types";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { CoachView, ViewProfile } from "./types";
-import { fetchViewProfile } from "./profile";
+import { forbid, readProfile } from "./guard.server";
 import { loadCoachIndex } from "./data.server";
 import { buildView, ScopeError } from "./slice.server";
 import { buildDemoAccounts, DEMO_PASSWORD } from "./accounts.server";
@@ -18,23 +15,6 @@ export const ASK_LIMIT_PER_HOUR = 10;
 const SEED_BATCH = 20;
 
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a YYYY-MM-DD date");
-
-function forbid(message = "Forbidden"): never {
-  setResponseStatus(403);
-  throw new Error(message);
-}
-
-async function readProfile(supabase: SupabaseClient<Database>, userId: string): Promise<ViewProfile> {
-  let profile: ViewProfile | null;
-  try {
-    profile = await fetchViewProfile(supabase, userId);
-  } catch (error) {
-    console.error("[coach] profile read failed", error instanceof Error ? error.message : error);
-    forbid("Could not read your Store Coach profile");
-  }
-  if (!profile) forbid("This account has no Store Coach role");
-  return profile;
-}
 
 // ---------- get-view ----------
 export const getView = createServerFn({ method: "POST" })
