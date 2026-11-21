@@ -32,3 +32,10 @@
 - [x] SARVAM_API_KEY saved
 
 ## Ideas / later
+
+## Next (priority order, after 20-min cutoff on 21 Nov)
+- [ ] Revenue scenarios from real baselines (no forecasts)
+- [ ] Voice sales practice (Sarvam speech, text fallback) + salesperson Practice/Progress
+- [ ] Daily automatic run
+- [ ] Welcome page with guided demo + feature checklist
+- Blocked: bill-line, stock and roster features need data not in the upload
