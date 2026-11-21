@@ -11,7 +11,7 @@ import {
   Loader2,
   Map,
   Pause,
-  Phone,
+  Phone, MessageSquare,
   Play,
   ShieldCheck,
   Sun,
@@ -170,6 +170,7 @@ function navFor(role: ViewProfile["role"]): NavItem[] {
       return [
         { label: "Today", to: "/me", icon: Sun, match: (p) => p === "/me" },
         { label: "Callbacks", to: "/me/callbacks", icon: Phone, match: (p) => p === "/me/callbacks" },
+        { label: "Practice", to: "/me/practice", icon: MessageSquare, match: (p) => p === "/me/practice" },
       ];
   }
 }

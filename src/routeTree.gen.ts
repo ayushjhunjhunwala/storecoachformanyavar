@@ -20,6 +20,7 @@ import { Route as AuthenticatedStoreRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedZoneRouteImport } from './routes/_authenticated/zone'
 import { Route as AuthenticatedIssueIssueIdRouteImport } from './routes/_authenticated/issue.$issueId'
 import { Route as AuthenticatedMeCallbacksRouteImport } from './routes/_authenticated/me_.callbacks'
+import { Route as AuthenticatedMePracticeRouteImport } from './routes/_authenticated/me_.practice'
 import { Route as AuthenticatedStoreRosterRouteImport } from './routes/_authenticated/store_.roster'
 import { Route as AuthenticatedIssueIssueIdInvestigateRouteImport } from './routes/_authenticated/issue.$issueId_.investigate'
 
@@ -79,6 +80,11 @@ const AuthenticatedMeCallbacksRoute =
     path: '/me/callbacks',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedMePracticeRoute = AuthenticatedMePracticeRouteImport.update({
+  id: '/me_/practice',
+  path: '/me/practice',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedStoreRosterRoute =
   AuthenticatedStoreRosterRouteImport.update({
     id: '/store_/roster',
@@ -103,6 +109,7 @@ export interface FileRoutesByFullPath {
   '/zone': typeof AuthenticatedZoneRoute
   '/issue/$issueId': typeof AuthenticatedIssueIssueIdRoute
   '/me/callbacks': typeof AuthenticatedMeCallbacksRoute
+  '/me/practice': typeof AuthenticatedMePracticeRoute
   '/store/roster': typeof AuthenticatedStoreRosterRoute
   '/issue/$issueId/investigate': typeof AuthenticatedIssueIssueIdInvestigateRoute
 }
@@ -117,6 +124,7 @@ export interface FileRoutesByTo {
   '/zone': typeof AuthenticatedZoneRoute
   '/issue/$issueId': typeof AuthenticatedIssueIssueIdRoute
   '/me/callbacks': typeof AuthenticatedMeCallbacksRoute
+  '/me/practice': typeof AuthenticatedMePracticeRoute
   '/store/roster': typeof AuthenticatedStoreRosterRoute
   '/issue/$issueId/investigate': typeof AuthenticatedIssueIssueIdInvestigateRoute
 }
@@ -133,6 +141,7 @@ export interface FileRoutesById {
   '/_authenticated/zone': typeof AuthenticatedZoneRoute
   '/_authenticated/issue/$issueId': typeof AuthenticatedIssueIssueIdRoute
   '/_authenticated/me_/callbacks': typeof AuthenticatedMeCallbacksRoute
+  '/_authenticated/me_/practice': typeof AuthenticatedMePracticeRoute
   '/_authenticated/store_/roster': typeof AuthenticatedStoreRosterRoute
   '/_authenticated/issue/$issueId_/investigate': typeof AuthenticatedIssueIssueIdInvestigateRoute
 }
@@ -149,6 +158,7 @@ export interface FileRouteTypes {
     | '/zone'
     | '/issue/$issueId'
     | '/me/callbacks'
+    | '/me/practice'
     | '/store/roster'
     | '/issue/$issueId/investigate'
   fileRoutesByTo: FileRoutesByTo
@@ -163,6 +173,7 @@ export interface FileRouteTypes {
     | '/zone'
     | '/issue/$issueId'
     | '/me/callbacks'
+    | '/me/practice'
     | '/store/roster'
     | '/issue/$issueId/investigate'
   id:
@@ -178,6 +189,7 @@ export interface FileRouteTypes {
     | '/_authenticated/zone'
     | '/_authenticated/issue/$issueId'
     | '/_authenticated/me_/callbacks'
+    | '/_authenticated/me_/practice'
     | '/_authenticated/store_/roster'
     | '/_authenticated/issue/$issueId_/investigate'
   fileRoutesById: FileRoutesById
@@ -267,6 +279,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMeCallbacksRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/me_/practice': {
+      id: '/_authenticated/me_/practice'
+      path: '/me/practice'
+      fullPath: '/me/practice'
+      preLoaderRoute: typeof AuthenticatedMePracticeRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/store_/roster': {
       id: '/_authenticated/store_/roster'
       path: '/store/roster'
@@ -293,6 +312,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedZoneRoute: typeof AuthenticatedZoneRoute
   AuthenticatedIssueIssueIdRoute: typeof AuthenticatedIssueIssueIdRoute
   AuthenticatedMeCallbacksRoute: typeof AuthenticatedMeCallbacksRoute
+  AuthenticatedMePracticeRoute: typeof AuthenticatedMePracticeRoute
   AuthenticatedStoreRosterRoute: typeof AuthenticatedStoreRosterRoute
   AuthenticatedIssueIssueIdInvestigateRoute: typeof AuthenticatedIssueIssueIdInvestigateRoute
 }
@@ -306,6 +326,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedZoneRoute: AuthenticatedZoneRoute,
   AuthenticatedIssueIssueIdRoute: AuthenticatedIssueIssueIdRoute,
   AuthenticatedMeCallbacksRoute: AuthenticatedMeCallbacksRoute,
+  AuthenticatedMePracticeRoute: AuthenticatedMePracticeRoute,
   AuthenticatedStoreRosterRoute: AuthenticatedStoreRosterRoute,
   AuthenticatedIssueIssueIdInvestigateRoute:
     AuthenticatedIssueIssueIdInvestigateRoute,
